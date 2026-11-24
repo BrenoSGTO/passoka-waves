@@ -59,8 +59,8 @@
       <div class="fmap">
         <div class="fmap-bar">
           <div class="seg" role="group" aria-label="Camadas">
-            <button data-m="waves">🌊 Ondulação</button>
-            <button data-m="wind">💨 Vento</button>
+            <button data-m="waves">Ondulação</button>
+            <button data-m="wind">Vento</button>
             <button data-m="both" class="active">Ambos</button>
           </div>
           <div class="time-ctl">
@@ -101,10 +101,10 @@
       mk.bindPopup(() => {
         const i = idx, w = c.wave, v = c.wind;
         return `<b>${fmtTime(times[i])}</b><br>` +
-          (w ? `🌊 Ondas: <b>${w.h[i] ?? '—'} m</b> · ${w.p[i] ?? '—'} s · de ${compass(w.d[i])} (${w.d[i] ?? '—'}°)<br>
+          (w ? `Ondas <b>${w.h[i] ?? '—'} m</b> · ${w.p[i] ?? '—'} s · de ${compass(w.d[i])} (${w.d[i] ?? '—'}°)<br>
           &nbsp;&nbsp;&nbsp;Swell: ${w.sh[i] ?? '—'} m · ${w.sp[i] ?? '—'} s · de ${compass(w.sd[i])}<br>
           &nbsp;&nbsp;&nbsp;Vaga de vento: ${w.ww[i] ?? '—'} m<br>` : '') +
-          `💨 Vento: <b>${v.s[i]} km/h</b> (rajada ${v.g[i]}) de ${compass(v.d[i])} (${v.d[i]}°)`;
+          `Vento <b>${v.s[i]} km/h</b> (rajada ${v.g[i]}) de ${compass(v.d[i])} (${v.d[i]}°)`;
       });
       return { c, rect, mk };
     });

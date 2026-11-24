@@ -88,10 +88,10 @@
     const x = i => L + i * bw;
     const y = v => yBars0 + (1 - v / maxS) * BH;
     const windColor = v => (window.FloripaMap ? window.FloripaMap.windColor(v) : '#facc15');
-    const arrowPath = (cx, cy, dir, size, fill) => {
+    const arrowPath = (cx, cy, dir, size, fill, cls) => {
       const s = size / 24;
       el('path', {
-        d: 'M12 1 L20 21 L12 16.5 L4 21 Z', fill,
+        d: 'M12 1 L20 21 L12 16.5 L4 21 Z', ...(fill ? { fill } : {}), ...(cls ? { class: cls } : {}),
         transform: `translate(${cx - 12 * s},${cy - 12 * s}) scale(${s}) rotate(${(dir + 180) % 360} 12 12)`,
       }, svg);
     };
@@ -127,17 +127,17 @@
       if (i + 1 < n) el('text', { x: cx, y: y(hv) - 5, class: 'bar-val', 'text-anchor': 'middle' }, svg).textContent = hv.toFixed(1);
       const t = (r, txt, cls = 'cell') => { el('text', { x: cx, y: yBase + r * ROW + 16, class: cls, 'text-anchor': 'middle' }, svg).textContent = txt; };
       t(0, String(hr).padStart(2, '0') + 'h', 'cell muted-c');
-      el('rect', { x: cx - 14, y: yBase + ROW + 4, width: 28, height: ROW - 8, rx: 4, class: 'r' + Math.round(h.rating) }, svg);
+      el('rect', { x: cx - 14, y: yBase + ROW + 4, width: 28, height: ROW - 8, class: 'r' + Math.round(h.rating) }, svg);
       t(1, h.rating.toFixed(1), 'cell dark');
-      if (h.swell_wave_direction != null) arrowPath(cx - 12, yBase + 2 * ROW + 12, h.swell_wave_direction, 11, '#67e8f9');
+      if (h.swell_wave_direction != null) arrowPath(cx - 12, yBase + 2 * ROW + 12, h.swell_wave_direction, 11, null, 'ar-sw');
       el('text', { x: cx + 5, y: yBase + 2 * ROW + 16, class: 'cell sw', 'text-anchor': 'middle' }, svg).textContent =
         h.swell_wave_height == null ? '—' : h.swell_wave_height.toFixed(1);
       t(3, h.swell_wave_period == null ? '—' : Math.round(h.swell_wave_period) + 's');
       const ws = Math.round(h.wind_speed_10m || 0);
-      el('rect', { x: cx - 14, y: yBase + 4 * ROW + 4, width: 28, height: ROW - 8, rx: 4, fill: windColor(ws), opacity: 0.9 }, svg);
+      el('rect', { x: cx - 14, y: yBase + 4 * ROW + 4, width: 28, height: ROW - 8, fill: windColor(ws), opacity: 0.75 }, svg);
       t(4, String(ws), 'cell dark');
       t(5, String(Math.round(h.wind_gusts_10m || 0)));
-      if (h.wind_direction_10m != null) arrowPath(cx - 9, yBase + 6 * ROW + 12, h.wind_direction_10m, 13, windColor(ws));
+      if (h.wind_direction_10m != null) arrowPath(cx - 9, yBase + 6 * ROW + 12, h.wind_direction_10m, 12, null, 'ar-wd');
       el('text', { x: cx + 7, y: yBase + 6 * ROW + 16, class: 'cell small-c', 'text-anchor': 'middle' }, svg).textContent = COMPASS16(h.wind_direction_10m);
     });
     const now = Date.now();

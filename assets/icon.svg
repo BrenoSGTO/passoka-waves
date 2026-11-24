@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="14" fill="#d97706"/>
-  <text x="32" y="32" dy="0.35em" text-anchor="middle" font-family="ui-sans-serif, system-ui, -apple-system, sans-serif" font-size="26" font-weight="600" fill="#ffffff">PW</text>
+  <rect width="64" height="64" fill="#15181b"/>
+  <circle cx="32" cy="32" r="21" fill="none" stroke="#d9481a" stroke-width="3"/>
+  <path d="M8 38 C16 30, 22 30, 28 36 S40 44, 48 36 S56 32, 58 33" fill="none" stroke="#f2eee5" stroke-width="4" stroke-linecap="square"/>
 </svg>

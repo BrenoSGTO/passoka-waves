@@ -93,7 +93,7 @@
       out += `<g transform="translate(${x},${y}) rotate(${rot})">
         <path d="M-5,-${len} L5,-${len} L5,-11 L10,-11 L0,0 L-10,-11 L-5,-11 Z" fill="${c.color}" stroke="#0b1d2e" stroke-width="1"/></g>`;
       const [lx, ly] = P(D, r0 + len + 14);
-      out += `<g class="sp-lbl"><rect x="${lx - 22}" y="${ly - 15}" width="44" height="30" rx="4" fill="#132f45" fill-opacity=".92" stroke="${c.color}"/>
+      out += `<g class="sp-lbl"><rect x="${lx - 22}" y="${ly - 15}" width="44" height="30" fill="#15181b" fill-opacity=".88" stroke="${c.color}"/>
         <text x="${lx}" y="${ly - 2}" text-anchor="middle">${H.toFixed(1)}m</text>
         <text x="${lx}" y="${ly + 11}" text-anchor="middle" class="sm">${Math.round(D)}°</text></g>`;
     });
@@ -110,7 +110,7 @@
         <path d="M${ex},${ey} L${ex + hx1 - C},${ey + hy1 - C} L${ex + hx2 - C},${ey + hy2 - C} Z" fill="#facc15" stroke="#0b1d2e" stroke-width="1"/>
         <circle cx="${C}" cy="${C}" r="7" fill="#facc15" stroke="#0b1d2e" stroke-width="1.5"/>`;
       const [tx, ty] = P(wd, 22);
-      out += `<g class="sp-lbl"><rect x="${tx - 26}" y="${ty - 10}" width="52" height="20" rx="3" fill="#fff"/>
+      out += `<g class="sp-lbl"><rect x="${tx - 26}" y="${ty - 10}" width="52" height="20" fill="#faf8f3"/>
         <text x="${tx}" y="${ty + 4}" text-anchor="middle" class="dark">${Math.round(ws)} km/h</text></g>`;
     }
     return `<svg xmlns="${NS}" width="${S}" height="${S}" viewBox="0 0 ${S} ${S}" class="spec-svg">${out}</svg>`;
@@ -141,7 +141,7 @@
         </div>
         <div class="spec-info"></div>
         <div class="spec-energy">
-          <div class="t">Energia (J/m²)</div>
+          <div class="t">Energia do espectro · J/m²</div>
           <div class="bar">${ENERGY.map(([v, c]) => `<span style="background:${c}">${v}</span>`).join('')}</div>
         </div>
         <div class="spec-time">
@@ -209,8 +209,8 @@
           ${h[c.key + '_direction'] != null ? c16(h[c.key + '_direction']) + ' ' + Math.round(h[c.key + '_direction']) + '°' : ''}</div>`;
       }).join('');
       container.querySelector('.spec-info').innerHTML = `
-        <div class="si-head"><a href="#/praia/${beach.id}"><b>${beach.name}</b></a> · ${d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} ${h.time.slice(11, 16)}
-          <span class="si-surf">Surf ~${h.surf.toFixed(1)} m · nota ${h.rating.toFixed(1)}</span></div>
+        <div class="si-head"><a href="#/praia/${beach.id}"><b>${beach.name}</b></a><span class="si-when">${d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · ${h.time.slice(11, 16)}</span>
+          <span class="si-surf">Surf ~${h.surf.toFixed(1)} m · nota ${h.rating.toFixed(1)}/5</span></div>
         <div class="si-row">${comp}
           <div class="si"><i style="background:#facc15"></i><span class="k">Vento</span><b>${Math.round(h.wind_speed_10m)} km/h</b>
             ${Math.round(h.wind_speed_10m / 1.852)} kt · ${c16(h.wind_direction_10m)} <em class="wk ${h.windKind}">${h.windLabel}</em></div>

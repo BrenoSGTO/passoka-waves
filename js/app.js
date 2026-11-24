@@ -20,9 +20,10 @@
 
   const RATING_TXT = ['Flat', 'Fraco', 'Regular', 'Bom', 'Muito bom', 'Clássico'];
   const ratingTxt = r => RATING_TXT[Math.max(0, Math.min(5, Math.round(r)))];
+  // Medidor de 5 segmentos no lugar de estrelas
   const stars = r => {
     const n = Math.round(r);
-    return `<span class="stars" title="${ratingTxt(r)} (${r.toFixed(1)}/5)">${'★'.repeat(n)}<i>${'★'.repeat(5 - n)}</i></span>`;
+    return `<span class="meter r-border${n}" title="${ratingTxt(r)} (${r.toFixed(1)}/5)">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}<span>${r.toFixed(1)}</span></span>`;
   };
   const surfRange = s => {
     if (s < 0.2) return 'flat';
@@ -30,12 +31,12 @@
     return `${lo.toFixed(1)}–${hi.toFixed(1)} m`;
   };
   const WX = {
-    0: ['☀️', 'Céu limpo'], 1: ['🌤️', 'Poucas nuvens'], 2: ['⛅', 'Parcialmente nublado'], 3: ['☁️', 'Nublado'],
-    45: ['🌫️', 'Neblina'], 48: ['🌫️', 'Neblina'], 51: ['🌦️', 'Garoa'], 53: ['🌦️', 'Garoa'], 55: ['🌧️', 'Garoa forte'],
-    61: ['🌧️', 'Chuva fraca'], 63: ['🌧️', 'Chuva'], 65: ['🌧️', 'Chuva forte'], 80: ['🌦️', 'Pancadas'], 81: ['🌧️', 'Pancadas'],
-    82: ['⛈️', 'Pancadas fortes'], 95: ['⛈️', 'Trovoadas'], 96: ['⛈️', 'Trovoadas'], 99: ['⛈️', 'Trovoadas'],
+    0: ['Limpo', 'Céu limpo'], 1: ['Sol', 'Poucas nuvens'], 2: ['Parcial', 'Parcialmente nublado'], 3: ['Nublado', 'Nublado'],
+    45: ['Névoa', 'Neblina'], 48: ['Névoa', 'Neblina'], 51: ['Garoa', 'Garoa'], 53: ['Garoa', 'Garoa'], 55: ['Garoa', 'Garoa forte'],
+    61: ['Chuva', 'Chuva fraca'], 63: ['Chuva', 'Chuva'], 65: ['Chuva+', 'Chuva forte'], 80: ['Pancada', 'Pancadas'], 81: ['Pancada', 'Pancadas'],
+    82: ['Pancada+', 'Pancadas fortes'], 95: ['Trovoada', 'Trovoadas'], 96: ['Trovoada', 'Trovoadas'], 99: ['Trovoada', 'Trovoadas'],
   };
-  const wx = c => WX[c] || ['·', ''];
+  const wx = c => WX[c] || ['—', ''];
 
   function nowIndex(hours) {
     const now = Date.now();
@@ -90,8 +91,7 @@
 
   function updatedLine() {
     const d = new Date(DATA.fetchedAt);
-    return `<span class="muted">Atualizado ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
-      <button class="btn-link" id="refresh">Atualizar</button>`;
+    return `<div class="updated">Atualizado às ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} · <button class="btn-link" id="refresh">atualizar</button></div>`;
   }
   function bindRefresh() {
     const b = document.getElementById('refresh');
@@ -122,7 +122,7 @@
           <h3>${esc(b.name)}</h3>
           ${stars(h.rating)}
         </div>
-        <div class="surf-big">${surfRange(h.surf)}</div>
+        <div class="surf-big">${surfRange(h.surf).replace(' m', '<small> m</small>')}</div>
         <div class="metrics">
           <div><span class="k">Swell</span>${f1(h.swell_wave_height)}m · ${f0(h.swell_wave_period)}s ${arrow(h.swell_wave_direction)} ${compass(h.swell_wave_direction)}</div>
           <div><span class="k">Vento</span>${f0(h.wind_speed_10m)} km/h ${arrow(h.wind_direction_10m, 'wind')} ${compass(h.wind_direction_10m)} <em class="wk ${h.windKind}">${h.windLabel}</em></div>
@@ -147,38 +147,42 @@
     $app.innerHTML = `
       <section class="hero">
         <div>
-          <h1>Previsão de ondas em Florianópolis</h1>
-          <p class="muted">Swell, vento, maré e temperatura da água para ${B.length} praias da ilha. ${updatedLine()}</p>
+          <div class="kicker">Boletim de ondas · ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
+          <h1>O mar de <em>Florianópolis</em>, praia por praia.</h1>
+          <p class="lede muted">Swell, vento, maré e água para ${B.length} praias da ilha, de hora em hora pelos próximos sete dias.</p>
+          ${updatedLine()}
         </div>
         <div class="hero-side">
-          <div class="pill"><span class="k">Ondulação offshore</span>${f1(sea.wave_height)} m · ${f0(sea.wave_period)}s ${arrow(sea.wave_direction)} ${compass(sea.wave_direction)}</div>
-          <div class="pill"><span class="k">Próximas marés</span>${ex.map(e => `${e.type === 'high' ? '▲ Cheia' : '▼ Seca'} ${Charts.fmtHM(e.time)}`).join(' · ') || '—'}</div>
+          <div class="pill"><span class="k">Ondulação ao largo</span><span>${f1(sea.wave_height)} m · ${f0(sea.wave_period)} s ${arrow(sea.wave_direction)}${compass(sea.wave_direction)}</span></div>
+          <div class="pill"><span class="k">Melhor agora</span><span>${esc(top[0].b.name)} · ${surfRange(top[0].h.surf)}</span></div>
+          <div class="pill"><span class="k">Próximas marés</span><span>${ex.map(e => `${e.type === 'high' ? 'cheia' : 'seca'} ${Charts.fmtHM(e.time)}`).join(' · ') || '—'}</span></div>
+          <div class="pill"><span class="k">Água</span><span>${f1(sea.sea_surface_temperature)} °C</span></div>
         </div>
       </section>
 
       <section>
-        <h2 class="band">Mapas e espectro</h2>
-        <p class="muted small">Escolha a praia. O leque mostra de onde vem a energia das ondas: direção (ângulo) × período (anéis de 5, 10, 15 e 20 s), com cor pela energia.
-        Setas na borda = componentes (vagas, swell 1 e swell 2) com altura e direção. Pino amarelo = vento. Quer ver a ilha toda? <a href="#/mapa">Mapa geral de ondas e vento →</a></p>
-        <div id="spec-home"></div>
-      </section>
-
-      <section>
-        <h2>Melhores agora</h2>
+        <h2><span class="n">01</span> Melhores agora</h2>
         <div class="top-list">
           ${top.map(({ b, h }, i) => `
             <a class="top-item" href="#/praia/${b.id}">
               <span class="rank">${i + 1}</span>
               <span class="name">${esc(b.name)}</span>
-              <span>${surfRange(h.surf)}</span>
               ${stars(h.rating)}
+              <span class="sz">${surfRange(h.surf)} · ${f0(h.wind_speed_10m)} km/h ${h.windLabel.toLowerCase()}</span>
             </a>`).join('')}
         </div>
       </section>
 
-      ${regions.map(r => `
+      <section>
+        <h2><span class="n">02</span> Mapas e espectro</h2>
+        <p class="muted small">O leque mostra de onde vem a energia das ondas: o ângulo é a direção, os anéis são o período (5, 10, 15 e 20 s) e a cor é a energia.
+        As setas na borda são os componentes (vagas, swell 1 e swell 2), e o pino amarelo é o vento. Para ver a ilha inteira, abra o <a href="#/mapa">mapa geral</a>.</p>
+        <div id="spec-home"></div>
+      </section>
+
+      ${regions.map((r, i) => `
         <section>
-          <h2>${r} da ilha</h2>
+          <h2><span class="n">0${i + 3}</span> ${r} da ilha</h2>
           <div class="grid">${B.filter(b => b.region === r).map(beachCard).join('')}</div>
         </section>`).join('')}
     `;
@@ -207,8 +211,9 @@
       <a href="#/" class="back">← Todas as praias</a>
       <section class="beach-head">
         <div>
+          <div class="kicker">${b.region} da ilha · voltada para ${compass(b.facing)} ${b.facing}°</div>
           <h1>${esc(b.name)}</h1>
-          <p class="muted">Região ${b.region} · praia voltada para ${compass(b.facing)} (${b.facing}°) · ${updatedLine()}</p>
+          ${updatedLine()}
         </div>
         <div class="now-box r-border${Math.round(h.rating)}">
           <div class="now-label">Agora</div>
@@ -221,17 +226,17 @@
         <div class="stat"><span class="k">Swell primário</span><b>${f1(h.swell_wave_height)} m</b><span>${f0(h.swell_wave_period)}s ${arrow(h.swell_wave_direction)} ${compass(h.swell_wave_direction)} ${f0(h.swell_wave_direction)}°</span></div>
         <div class="stat"><span class="k">Swell secundário</span><b>${f1(h.secondary_swell_wave_height)} m</b><span>${f0(h.secondary_swell_wave_period)}s ${arrow(h.secondary_swell_wave_direction)} ${compass(h.secondary_swell_wave_direction)}</span></div>
         <div class="stat"><span class="k">Vento</span><b>${f0(h.wind_speed_10m)} km/h</b><span>raj. ${f0(h.wind_gusts_10m)} ${arrow(h.wind_direction_10m, 'wind')} ${compass(h.wind_direction_10m)} · <em class="wk ${h.windKind}">${h.windLabel}</em></span></div>
-        <div class="stat"><span class="k">Água</span><b>${f1(h.sea_surface_temperature)} °C</b><span>Ar ${f0(h.temperature_2m)}°C ${wx(h.weather_code)[0]}</span></div>
+        <div class="stat"><span class="k">Água</span><b>${f1(h.sea_surface_temperature)} °C</b><span>Ar ${f0(h.temperature_2m)} °C · ${wx(h.weather_code)[1].toLowerCase()}</span></div>
         <div class="stat"><span class="k">Nível do mar</span><b>${f1(h.sea_level_height_msl)} m</b><span>${(() => { const n = extremes.find(e => e.time > Date.now()); return n ? (n.type === 'high' ? 'enchendo até ' : 'secando até ') + Charts.fmtHM(n.time) : ''; })()}</span></div>
       </section>
 
       <section>
-        <h2>Mapas e espectro</h2>
+        <h2><span class="n">01</span> Mapas e espectro</h2>
         <div id="spec-beach"></div>
       </section>
 
       <section>
-        <h2>Próximos 7 dias</h2>
+        <h2><span class="n">02</span> Próximos 7 dias</h2>
         <p class="muted small">Barras = altura estimada na arrebentação em metros (cor = qualidade). Abaixo: nota, swell (m, seta = para onde vai), período, vento e rajada (km/h) a cada 3 h. Clique numa barra para abrir o dia.</p>
         <div class="ov-card" id="overview"></div>
       </section>
@@ -256,7 +261,7 @@
                   <td>${x.secondary_swell_wave_height ? `${f1(x.secondary_swell_wave_height)}m <span class="muted">${f0(x.secondary_swell_wave_period)}s</span> ${arrow(x.secondary_swell_wave_direction)}<span class="muted">${compass(x.secondary_swell_wave_direction)}</span>` : '—'}</td>
                   <td>${f1(x.wind_wave_height)}m <span class="muted">${f0(x.wind_wave_period)}s</span></td>
                   <td><span class="wind-cell ${x.windKind}">${f0(x.wind_speed_10m)}<small>/${f0(x.wind_gusts_10m)}</small></span> ${arrow(x.wind_direction_10m, 'wind')}<span class="muted">${compass(x.wind_direction_10m)}</span></td>
-                  <td title="${wx(x.weather_code)[1]}">${wx(x.weather_code)[0]} ${f0(x.temperature_2m)}° ${x.precipitation_probability ? `<span class="muted">${x.precipitation_probability}%</span>` : ''}</td>
+                  <td title="${wx(x.weather_code)[1]}">${f0(x.temperature_2m)}° <span class="wx">${wx(x.weather_code)[0]}</span> ${x.precipitation_probability ? `<span class="muted">${x.precipitation_probability}%</span>` : ''}</td>
                 </tr>`).join('')}
             </tbody>
           </table>
@@ -264,17 +269,17 @@
       </section>
 
       <section class="two-col">
-        <div class="card">
-          <h2>Maré · ${dayLabel(sel)}</h2>
+        <div>
+          <h2><span class="n">03</span> Maré · ${dayLabel(sel)}</h2>
           <div id="tide"></div>
           <div class="tide-list">
             ${dayEx.map(e => `<span class="${e.type}">${e.type === 'high' ? '▲ Preamar' : '▼ Baixa-mar'} <b>${Charts.fmtHM(e.time)}</b> ${e.level.toFixed(2)} m</span>`).join('')}
           </div>
-          <p class="muted small">☀️ Nascer ${sun ? sun.sunrise.slice(11, 16) : '—'} · 🌙 Pôr ${sun ? sun.sunset.slice(11, 16) : '—'}.
+          <p class="muted small">Nascer do sol ${sun ? sun.sunrise.slice(11, 16) : '—'} · pôr ${sun ? sun.sunset.slice(11, 16) : '—'}.
           Maré modelada (nível do mar com maré astronômica + efeitos meteorológicos). Para navegação use a tábua oficial da Marinha.</p>
         </div>
-        <div class="card">
-          <h2>Mapa ao vivo (Windy)</h2>
+        <div>
+          <h2><span class="n">04</span> Mapa ao vivo · Windy</h2>
           <div class="windy-tabs" id="wtabs">
             <button data-o="waves" class="active">Ondas</button><button data-o="swell1">Swell</button><button data-o="wind">Vento</button>
           </div>
@@ -318,13 +323,19 @@
     setNav('mapa');
     $app.innerHTML = `
       <section>
-        <h1>Mapa geral de Florianópolis</h1>
-        <p class="muted">Ondulação (cor e setas brancas com altura e período) e vento (setas coloridas com velocidade em km/h).
-        Os pontinhos nas praias mostram a nota de surf no horário escolhido. ${updatedLine()}</p>
+        <div class="hero" style="grid-template-columns:1fr;padding-bottom:24px">
+          <div>
+            <div class="kicker">Mapa geral</div>
+            <h1>A ilha <em>inteira</em>, de três em três horas.</h1>
+            <p class="lede muted">A cor e as setas brancas mostram a ondulação, com altura e período. As setas coloridas mostram o vento em km/h.
+            Os pontos nas praias trazem a nota de surf no horário escolhido.</p>
+            ${updatedLine()}
+          </div>
+        </div>
         <div id="fmap-page"></div>
       </section>
       <section>
-        <h2>Windy · animação de ondas e vento</h2>
+        <h2><span class="n">01</span> Windy · animação de ondas e vento</h2>
         <div class="windy-tabs" id="wtabs2">
           <button data-o="waves" class="active">Ondas</button><button data-o="swell1">Swell</button><button data-o="wind">Vento</button>
         </div>
@@ -340,35 +351,36 @@
     setNav('sobre');
     $app.innerHTML = `
       <section class="prose card">
-        <h1>De onde vêm os dados</h1>
-        <h3>🌊 Ondas e swell — Open-Meteo Marine API</h3>
+        <div class="kicker">Fontes e método</div>
+        <h1>De onde vêm <em>os dados</em></h1>
+        <h3>Ondas e swell — Open-Meteo Marine API</h3>
         <p><a href="https://open-meteo.com/en/docs/marine-weather-api" target="_blank" rel="noopener">marine-api.open-meteo.com</a> —
         combina os modelos <b>ECMWF WAM</b>, <b>Météo-France MFWAM</b>, <b>DWD EWAM/GWAM</b> e <b>NOAA GFS Wave</b>. Fornece por hora:
         altura significativa, período e direção da onda total, do swell primário, do swell secundário e da vaga de vento, além da
         temperatura da superfície do mar. Gratuita, sem chave e com CORS liberado (por isso roda direto no GitHub Pages).</p>
         <p>Para cada praia o site consulta um ponto ~8 km mar adentro (uma célula da grade do modelo), na direção para onde a praia está voltada.</p>
 
-        <h3>🌀 Maré — Open-Meteo Marine (<code>sea_level_height_msl</code>)</h3>
+        <h3>Maré — Open-Meteo Marine (<code>sea_level_height_msl</code>)</h3>
         <p>Nível do mar modelado (maré astronômica + efeitos de vento/pressão) em resolução de ~8 km. Preamar e baixa-mar são
         calculadas a partir da curva. Em Floripa a amplitude é pequena (micro-maré, ~0,5–1,2 m). A referência oficial é a
         <a href="https://www.marinha.mil.br/chm/tabuas-de-mare" target="_blank" rel="noopener">tábua de marés da Marinha (CHM/DHN)</a>
         — estação Porto de Florianópolis — que só é publicada em PDF, sem API.</p>
 
-        <h3>💨 Vento e tempo — Open-Meteo Forecast API</h3>
+        <h3>Vento e tempo — Open-Meteo Forecast API</h3>
         <p><a href="https://open-meteo.com/en/docs" target="_blank" rel="noopener">api.open-meteo.com</a> — escolhe automaticamente o melhor
         modelo para a região (ICON, GFS, ECMWF IFS). Vento a 10 m, rajadas, temperatura, nuvens, chuva, nascer e pôr do sol.</p>
 
-        <h3>🗺️ Mapas — Windy embed + OpenStreetMap</h3>
+        <h3>Mapas — Windy embed + OpenStreetMap</h3>
         <p>Animações de ondas, swell e vento via <a href="https://www.windy.com/" target="_blank" rel="noopener">embed.windy.com</a>
         (modelos ECMWF).</p>
         <p><b>Mapa geral</b>: grade de ~9 km sobre a região (mesma resolução do modelo de ondas), com ondas da Marine API e vento da Forecast API em cada ponto, desenhada com Leaflet sobre o mapa base da Esri (dados OpenStreetMap).</p>
 
-        <h3>🎯 Espectro direcional (Mapas e espectro)</h3>
+        <h3>Espectro direcional (Mapas e espectro)</h3>
         <p>A Open-Meteo não fornece o espectro 2D bruto. O leque é reconstruído a partir das três partições do modelo
         (vagas de vento, swell primário e swell secundário): cada uma vira uma mancha gaussiana em direção × período, com energia
         <code>E = ρ·g·H²/16</code> (J/m²), mesma unidade da escala de cores. Imagens de satélite: Esri World Imagery.</p>
 
-        <h3>⭐ Como a nota é calculada</h3>
+        <h3>Como a nota é calculada</h3>
         <ul>
           <li><b>Surf estimado</b>: cada componente (swell 1, swell 2, vaga de vento) é ponderado pela exposição da praia
           (ângulo entre a direção do swell e a orientação da praia) e por um fator de período (ondas longas crescem mais no raso).</li>
