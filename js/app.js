@@ -4,6 +4,7 @@
   const byId = Object.fromEntries(B.map(b => [b.id, b]));
   let DATA = null;
   let leafletMap = null;
+  let specInst = null;
 
   // ---------- utilidades ----------
   const COMPASS = ['N', 'NNE', 'NE', 'ENE', 'L', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
@@ -58,6 +59,13 @@
     DATA = await API.fetchAll(force);
     if (force) GRID = null;
     return DATA;
+  }
+
+  function mountSpectrum(elId, opts) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    if (specInst) specInst.remove();
+    specInst = Spectrum.mount(el, DATA.beaches, opts);
   }
 
   // Monta o mapa geral (grade de ondas + vento) dentro de #elId.
@@ -149,10 +157,10 @@
       </section>
 
       <section>
-        <h2>Mapa geral · ondulação e vento</h2>
-        <p class="muted small">Setas brancas = direção das ondas, com altura (m) e período (s). Setas coloridas = vento, com velocidade em km/h.
-        Use o controle de tempo para ver os próximos 7 dias. Toque em qualquer ponto para detalhes.</p>
-        <div id="fmap-home"></div>
+        <h2 class="band">Mapas e espectro</h2>
+        <p class="muted small">Escolha a praia. O leque mostra de onde vem a energia das ondas: direção (ângulo) × período (anéis de 5, 10, 15 e 20 s), com cor pela energia.
+        Setas na borda = componentes (vagas, swell 1 e swell 2) com altura e direção. Pino amarelo = vento. Quer ver a ilha toda? <a href="#/mapa">Mapa geral de ondas e vento →</a></p>
+        <div id="spec-home"></div>
       </section>
 
       <section>
@@ -175,7 +183,7 @@
         </section>`).join('')}
     `;
     bindRefresh();
-    mountFloripaMap('fmap-home', { height: 540 });
+    mountSpectrum('spec-home', {});
   }
 
   // ---------- PRAIA ----------
@@ -215,6 +223,11 @@
         <div class="stat"><span class="k">Vento</span><b>${f0(h.wind_speed_10m)} km/h</b><span>raj. ${f0(h.wind_gusts_10m)} ${arrow(h.wind_direction_10m, 'wind')} ${compass(h.wind_direction_10m)} · <em class="wk ${h.windKind}">${h.windLabel}</em></span></div>
         <div class="stat"><span class="k">Água</span><b>${f1(h.sea_surface_temperature)} °C</b><span>Ar ${f0(h.temperature_2m)}°C ${wx(h.weather_code)[0]}</span></div>
         <div class="stat"><span class="k">Nível do mar</span><b>${f1(h.sea_level_height_msl)} m</b><span>${(() => { const n = extremes.find(e => e.time > Date.now()); return n ? (n.type === 'high' ? 'enchendo até ' : 'secando até ') + Charts.fmtHM(n.time) : ''; })()}</span></div>
+      </section>
+
+      <section>
+        <h2>Mapas e espectro</h2>
+        <div id="spec-beach"></div>
       </section>
 
       <section>
@@ -277,6 +290,7 @@
     const firstOfDay = d.hours.findIndex(x => dayKey(x.time) === sel);
     ov.scrollToIndex(sel === days[0] ? ni : firstOfDay);
     bindWindyTabs('wtabs', 'windy', b.mlat, b.mlon, 10, b);
+    mountSpectrum('spec-beach', { beachId: id, selector: false });
   }
   const localDay = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
   const addH = (t, n) => { const d = new Date(t); d.setHours(d.getHours() + n); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:00`; };
@@ -349,6 +363,11 @@
         (modelos ECMWF).</p>
         <p><b>Mapa geral</b>: grade de ~9 km sobre a região (mesma resolução do modelo de ondas), com ondas da Marine API e vento da Forecast API em cada ponto, desenhada com Leaflet sobre o mapa base da Esri (dados OpenStreetMap).</p>
 
+        <h3>🎯 Espectro direcional (Mapas e espectro)</h3>
+        <p>A Open-Meteo não fornece o espectro 2D bruto. O leque é reconstruído a partir das três partições do modelo
+        (vagas de vento, swell primário e swell secundário): cada uma vira uma mancha gaussiana em direção × período, com energia
+        <code>E = ρ·g·H²/16</code> (J/m²), mesma unidade da escala de cores. Imagens de satélite: Esri World Imagery.</p>
+
         <h3>⭐ Como a nota é calculada</h3>
         <ul>
           <li><b>Surf estimado</b>: cada componente (swell 1, swell 2, vaga de vento) é ponderado pela exposição da praia
@@ -372,6 +391,7 @@
   async function route() {
     const parts = location.hash.replace(/^#\/?/, '').split('/');
     if (leafletMap) { leafletMap.remove(); leafletMap = null; }
+    if (specInst) { specInst.remove(); specInst = null; }
     if (parts[0] === 'sobre') { renderAbout(); window.scrollTo(0, 0); return; }
     try {
       if (!DATA) await load();
