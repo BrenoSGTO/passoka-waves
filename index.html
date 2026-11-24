@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Passoka Waves · Previsão de ondas Floripa</title>
+  <meta name="description" content="Previsão de ondas, swell, vento e maré para as praias de Florianópolis.">
+  <link rel="icon" href="assets/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#0b1d2e">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="topbar">
+    <a href="#/" class="brand">
+      <img src="assets/icon.svg" alt="" width="32" height="32">
+      <span>Passoka <b>Waves</b></span>
+    </a>
+    <nav class="nav">
+      <a href="#/" data-nav="home">Praias</a>
+      <a href="#/mapa" data-nav="mapa">Mapa</a>
+      <a href="#/sobre" data-nav="sobre">Fontes</a>
+    </nav>
+  </header>
+
+  <main id="app" class="container">
+    <div class="loading">Carregando previsão…</div>
+  </main>
+
+  <footer class="footer container">
+    Dados: <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> (ECMWF WAM, Météo-France MFWAM, DWD, NOAA GFS) ·
+    Mapa: <a href="https://www.windy.com/" target="_blank" rel="noopener">Windy</a> &amp; <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>.
+    Previsão modelada — confira sempre as condições no local.
+  </footer>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="js/beaches.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
