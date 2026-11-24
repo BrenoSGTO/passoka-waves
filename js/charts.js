@@ -49,6 +49,14 @@
     const lastX = x(new Date(pts[pts.length - 1].time).getTime()), firstX = x(new Date(pts[0].time).getTime());
     el('path', { d: line + ` L${lastX},${H - B} L${firstX},${H - B} Z`, class: 'tide-area' }, svg);
     el('path', { d: line, class: 'tide-line' }, svg);
+    // Valores a cada 3 h
+    pts.forEach(p => {
+      const hr = +p.time.slice(11, 13);
+      if (hr % 3 !== 0 || hr === 0) return;
+      const px = x(new Date(p.time).getTime()), py = y(p.sea_level_height_msl);
+      el('circle', { cx: px, cy: py, r: 2, class: 'dot-small' }, svg);
+      el('text', { x: px, y: py + 14, class: 'val', 'text-anchor': 'middle' }, svg).textContent = p.sea_level_height_msl.toFixed(2);
+    });
     // Extremos
     extremes.filter(e => e.time >= t0 && e.time < t1).forEach(e => {
       const cx = x(e.time), cy = y(e.level);
@@ -63,41 +71,83 @@
     }
   }
 
-  // Barras de altura de surf + linha de vento para toda a previsão (estilo Windguru).
+  // Painel estilo Windguru: barras de surf com valores + linhas numéricas (swell, período, vento, rajada).
   function overviewChart(container, hours, onPick) {
-    container.innerHTML = '';
+    container.innerHTML = '<div class="ov"><div class="ov-left"></div><div class="ov-scroll"></div></div>';
+    const left = container.querySelector('.ov-left'), scroller = container.querySelector('.ov-scroll');
     const n = hours.length;
-    const bw = 7, W = Math.max(700, n * bw + 50), H = 200, L = 34, T = 14, B = 30, R = 16;
-    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: 'chart chart-wide', role: 'img', 'aria-label': 'Altura das ondas e vento' }, container);
-    const maxS = Math.max(1, ...hours.map(h => h.surf || 0)) * 1.15;
-    const maxW = Math.max(30, ...hours.map(h => h.wind_gusts_10m || 0));
+    const LW = 74;
+    const bw = 13, L = 4, R = 12, TOP = 22, BH = 150, ROW = 24;
+    const rows = ['Hora', 'Nota', 'Swell (m)', 'Período', 'Vento', 'Rajada', 'Dir. vento'];
+    const yBars0 = TOP + 18, yBase = yBars0 + BH;
+    const H = yBase + rows.length * ROW + 6;
+    const W = L + n * bw + R;
+    const svg = el('svg', { viewBox: `0 0 ${W} ${H}`, width: W, height: H, class: 'chart chart-wide', role: 'img', 'aria-label': 'Previsão de 7 dias com valores' }, scroller);
+    const lsvg = el('svg', { viewBox: `0 0 ${LW} ${H}`, width: LW, height: H, class: 'chart chart-wide' }, left);
+    const maxS = Math.max(1, ...hours.map(h => h.surf || 0)) * 1.2;
     const x = i => L + i * bw;
-    const y = v => T + (1 - v / maxS) * (H - T - B);
-    const yw = v => T + (1 - v / maxW) * (H - T - B);
+    const y = v => yBars0 + (1 - v / maxS) * BH;
+    const windColor = v => (window.FloripaMap ? window.FloripaMap.windColor(v) : '#facc15');
+    const arrowPath = (cx, cy, dir, size, fill) => {
+      const s = size / 24;
+      el('path', {
+        d: 'M12 1 L20 21 L12 16.5 L4 21 Z', fill,
+        transform: `translate(${cx - 12 * s},${cy - 12 * s}) scale(${s}) rotate(${(dir + 180) % 360} 12 12)`,
+      }, svg);
+    };
+
     for (let v = 0; v <= maxS; v += maxS > 3 ? 1 : 0.5) {
       el('line', { x1: L, x2: W - R, y1: y(v), y2: y(v), class: 'grid' }, svg);
-      el('text', { x: L - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, svg).textContent = v.toFixed(1) + 'm';
+      el('text', { x: LW - 6, y: y(v) + 4, class: 'axis', 'text-anchor': 'end' }, lsvg).textContent = v.toFixed(1) + ' m';
     }
+    rows.forEach((name, r) => {
+      const ry = yBase + r * ROW;
+      if (r % 2 === 0) {
+        el('rect', { x: 0, y: ry, width: W, height: ROW, class: 'row-band' }, svg);
+        el('rect', { x: 0, y: ry, width: LW, height: ROW, class: 'row-band' }, lsvg);
+      }
+      el('text', { x: 8, y: ry + 16, class: 'row-name' }, lsvg).textContent = name;
+    });
+
     hours.forEach((h, i) => {
       const d = new Date(h.time);
-      if (d.getHours() === 0) {
-        el('line', { x1: x(i), x2: x(i), y1: T, y2: H - B + 6, class: 'grid strong' }, svg);
-        el('text', { x: x(i) + 4, y: H - 8, class: 'axis' }, svg).textContent =
-          d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit' });
+      const hr = d.getHours();
+      if (hr === 0 || i === 0) {
+        if (hr === 0) el('line', { x1: x(i), x2: x(i), y1: 4, y2: H, class: 'grid strong' }, svg);
+        el('text', { x: x(i) + 5, y: 16, class: 'day-lbl' }, svg).textContent =
+          d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
       }
       const hv = h.surf || 0;
-      const r = el('rect', { x: x(i) + 0.5, y: y(hv), width: bw - 1, height: Math.max(0, y(0) - y(hv)), class: 'bar r' + Math.round(h.rating), 'data-i': i }, svg);
-      const tt = el('title', {}, r);
-      tt.textContent = `${d.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · surf ${hv.toFixed(1)}m · vento ${Math.round(h.wind_speed_10m || 0)} km/h`;
+      const rct = el('rect', { x: x(i) + 0.5, y: y(hv), width: bw - 1, height: Math.max(0, yBase - y(hv)), class: 'bar r' + Math.round(h.rating), 'data-i': i }, svg);
+      el('title', {}, rct).textContent = `${d.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · surf ${hv.toFixed(1)} m · nota ${h.rating.toFixed(1)}`;
+
+      // Valores a cada 3 h, centralizados na coluna de 3 horas
+      if (hr % 3 !== 0) return;
+      const cx = x(i) + bw * 1.5;
+      if (i + 1 < n) el('text', { x: cx, y: y(hv) - 5, class: 'bar-val', 'text-anchor': 'middle' }, svg).textContent = hv.toFixed(1);
+      const t = (r, txt, cls = 'cell') => { el('text', { x: cx, y: yBase + r * ROW + 16, class: cls, 'text-anchor': 'middle' }, svg).textContent = txt; };
+      t(0, String(hr).padStart(2, '0') + 'h', 'cell muted-c');
+      el('rect', { x: cx - 14, y: yBase + ROW + 4, width: 28, height: ROW - 8, rx: 4, class: 'r' + Math.round(h.rating) }, svg);
+      t(1, h.rating.toFixed(1), 'cell dark');
+      if (h.swell_wave_direction != null) arrowPath(cx - 12, yBase + 2 * ROW + 12, h.swell_wave_direction, 11, '#67e8f9');
+      el('text', { x: cx + 5, y: yBase + 2 * ROW + 16, class: 'cell sw', 'text-anchor': 'middle' }, svg).textContent =
+        h.swell_wave_height == null ? '—' : h.swell_wave_height.toFixed(1);
+      t(3, h.swell_wave_period == null ? '—' : Math.round(h.swell_wave_period) + 's');
+      const ws = Math.round(h.wind_speed_10m || 0);
+      el('rect', { x: cx - 14, y: yBase + 4 * ROW + 4, width: 28, height: ROW - 8, rx: 4, fill: windColor(ws), opacity: 0.9 }, svg);
+      t(4, String(ws), 'cell dark');
+      t(5, String(Math.round(h.wind_gusts_10m || 0)));
+      if (h.wind_direction_10m != null) arrowPath(cx - 9, yBase + 6 * ROW + 12, h.wind_direction_10m, 13, windColor(ws));
+      el('text', { x: cx + 7, y: yBase + 6 * ROW + 16, class: 'cell small-c', 'text-anchor': 'middle' }, svg).textContent = COMPASS16(h.wind_direction_10m);
     });
-    const wl = hours.map((h, i) => (i ? 'L' : 'M') + (x(i) + bw / 2).toFixed(1) + ',' + yw(h.wind_speed_10m || 0).toFixed(1)).join(' ');
-    el('path', { d: wl, class: 'wind-line' }, svg);
     const now = Date.now();
     const ni = hours.findIndex(h => new Date(h.time).getTime() > now) - 1;
-    if (ni >= 0) el('line', { x1: x(ni) + bw / 2, x2: x(ni) + bw / 2, y1: T, y2: H - B, class: 'now' }, svg);
+    if (ni >= 0) el('line', { x1: x(ni) + bw / 2, x2: x(ni) + bw / 2, y1: yBars0 - 10, y2: H, class: 'now' }, svg);
     if (onPick) svg.addEventListener('click', e => { const i = e.target.getAttribute('data-i'); if (i != null) onPick(+i); });
-    return { scrollToIndex: i => { container.scrollLeft = Math.max(0, x(i) - 60); } };
+    return { scrollToIndex: i => { scroller.scrollLeft = Math.max(0, x(i) - 20); } };
   }
+  const C16 = ['N', 'NNE', 'NE', 'ENE', 'L', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
+  const COMPASS16 = d => d == null ? '' : C16[Math.round(((d % 360) + 360) % 360 / 22.5) % 16];
 
   window.Charts = { tideChart, overviewChart, fmtHM };
 })();

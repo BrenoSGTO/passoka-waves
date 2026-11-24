@@ -70,6 +70,60 @@
     return data;
   }
 
+  // Grade regular sobre Florianópolis para o mapa geral (~0,083°, mesma resolução do modelo de ondas).
+  const GRID = { lat0: -27.125, lat1: -28.10, lon0: -48.79, lon1: -47.95, step: 0.0833 };
+  function gridPoints(g) {
+    const pts = [];
+    for (let a = g.lat0; a >= g.lat1; a -= g.step)
+      for (let o = g.lon0; o <= g.lon1; o += g.step) pts.push([+a.toFixed(4), +o.toFixed(4)]);
+    return pts;
+  }
+  const r1 = v => v == null ? null : Math.round(v * 10) / 10;
+  const r0 = v => v == null ? null : Math.round(v);
+
+  // Cada célula tem vento; células no mar também têm ondas.
+  async function fetchGrid(force) {
+    const key = 'pw:v3:grid';
+    if (!force) { const c = cacheGet(key); if (c) return c; }
+    const pts = gridPoints(GRID);
+    const lat = pts.map(p => p[0]).join(','), lon = pts.map(p => p[1]).join(',');
+    const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?' + new URLSearchParams({
+      latitude: lat, longitude: lon,
+      hourly: 'wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period,wind_wave_height',
+      timezone: TZ, forecast_days: DAYS, cell_selection: 'nearest',
+    });
+    const windUrl = 'https://api.open-meteo.com/v1/forecast?' + new URLSearchParams({
+      latitude: lat, longitude: lon,
+      hourly: 'wind_speed_10m,wind_direction_10m,wind_gusts_10m',
+      timezone: TZ, forecast_days: DAYS, wind_speed_unit: 'kmh',
+    });
+    const [M, W] = await Promise.all([getJSON(marineUrl), getJSON(windUrl)]);
+    const seen = new Set();
+    const cells = [];
+    pts.forEach((p, i) => {
+      const m = [].concat(M)[i], w = [].concat(W)[i];
+      const wind = { s: w.hourly.wind_speed_10m.map(r0), d: w.hourly.wind_direction_10m.map(r0), g: w.hourly.wind_gusts_10m.map(r0) };
+      const h = m.hourly;
+      const sea = h.wave_height.some(v => v != null);
+      let cLat = p[0], cLon = p[1], wave = null;
+      if (sea) {
+        cLat = m.latitude; cLon = m.longitude;
+        const k = cLat.toFixed(3) + ',' + cLon.toFixed(3);
+        if (seen.has(k)) return;
+        seen.add(k);
+        wave = {
+          h: h.wave_height.map(r1), d: h.wave_direction.map(r0), p: h.wave_period.map(r0),
+          sh: h.swell_wave_height.map(r1), sd: h.swell_wave_direction.map(r0), sp: h.swell_wave_period.map(r0),
+          ww: h.wind_wave_height.map(r1),
+        };
+      }
+      cells.push({ lat: cLat, lon: cLon, wave, wind });
+    });
+    const data = { fetchedAt: Date.now(), times: [].concat(M)[0].hourly.time, step: GRID.step, cells };
+    cacheSet(key, data);
+    return data;
+  }
+
   function merge(beach, m, w) {
     const times = m.hourly.time;
     const wIdx = {};
@@ -172,5 +226,5 @@
     return out;
   }
 
-  window.API = { fetchAll, tideExtremes, angDiff, exposure };
+  window.API = { fetchAll, fetchGrid, tideExtremes, angDiff, exposure };
 })();

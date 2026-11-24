@@ -53,9 +53,27 @@
   };
 
   // ---------- dados ----------
+  let GRID = null;
   async function load(force) {
     DATA = await API.fetchAll(force);
+    if (force) GRID = null;
     return DATA;
+  }
+
+  // Monta o mapa geral (grade de ondas + vento) dentro de #elId.
+  async function mountFloripaMap(elId, opts) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    el.innerHTML = '<div class="loading">Carregando mapa de ondas e vento…</div>';
+    try {
+      if (!GRID) GRID = await API.fetchGrid();
+    } catch (e) {
+      el.innerHTML = `<p class="muted">Não foi possível carregar o mapa (${esc(e.message)}).</p>`;
+      return;
+    }
+    if (!document.body.contains(el)) return; // usuário mudou de página
+    if (leafletMap) leafletMap.remove();
+    leafletMap = FloripaMap.mount(el, GRID, DATA.beaches, opts);
   }
 
   function setNav(name) {
@@ -131,6 +149,13 @@
       </section>
 
       <section>
+        <h2>Mapa geral · ondulação e vento</h2>
+        <p class="muted small">Setas brancas = direção das ondas, com altura (m) e período (s). Setas coloridas = vento, com velocidade em km/h.
+        Use o controle de tempo para ver os próximos 7 dias. Toque em qualquer ponto para detalhes.</p>
+        <div id="fmap-home"></div>
+      </section>
+
+      <section>
         <h2>Melhores agora</h2>
         <div class="top-list">
           ${top.map(({ b, h }, i) => `
@@ -150,6 +175,7 @@
         </section>`).join('')}
     `;
     bindRefresh();
+    mountFloripaMap('fmap-home', { height: 540 });
   }
 
   // ---------- PRAIA ----------
@@ -193,8 +219,8 @@
 
       <section>
         <h2>Próximos 7 dias</h2>
-        <p class="muted small">Barras = altura estimada na arrebentação (cor = qualidade). Linha amarela = vento (km/h). Clique numa barra para abrir o dia.</p>
-        <div class="scroll-x" id="overview"></div>
+        <p class="muted small">Barras = altura estimada na arrebentação em metros (cor = qualidade). Abaixo: nota, swell (m, seta = para onde vai), período, vento e rajada (km/h) a cada 3 h. Clique numa barra para abrir o dia.</p>
+        <div class="ov-card" id="overview"></div>
       </section>
 
       <section>
@@ -274,15 +300,14 @@
   }
 
   // ---------- MAPA ----------
-  const RATING_COLORS = ['#64748b', '#38bdf8', '#22c55e', '#eab308', '#f97316', '#ef4444'];
   function renderMap() {
     setNav('mapa');
     $app.innerHTML = `
       <section>
-        <h1>Mapa</h1>
-        <p class="muted">Cada ponto mostra a nota de surf <b>agora</b>. Toque numa praia para ver a previsão completa.</p>
-        <div id="lmap" class="lmap"></div>
-        <div class="legend">${RATING_TXT.map((t, i) => `<span><i style="background:${RATING_COLORS[i]}"></i>${t}</span>`).join('')}</div>
+        <h1>Mapa geral de Florianópolis</h1>
+        <p class="muted">Ondulação (cor e setas brancas com altura e período) e vento (setas coloridas com velocidade em km/h).
+        Os pontinhos nas praias mostram a nota de surf no horário escolhido. ${updatedLine()}</p>
+        <div id="fmap-page"></div>
       </section>
       <section>
         <h2>Windy · animação de ondas e vento</h2>
@@ -291,26 +316,8 @@
         </div>
         <iframe id="windy2" class="windy" loading="lazy" title="Mapa Windy" src="${windyUrl('waves', -27.62, -48.35, 8)}"></iframe>
       </section>`;
-    if (leafletMap) { leafletMap.remove(); leafletMap = null; }
-    leafletMap = L.map('lmap', { scrollWheelZoom: false }).setView([-27.61, -48.47], 11);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 18, attribution: '&copy; OpenStreetMap',
-    }).addTo(leafletMap);
-    B.forEach(b => {
-      const d = DATA.beaches[b.id];
-      const h = d.hours[nowIndex(d.hours)];
-      const r = Math.round(h.rating);
-      const icon = L.divIcon({
-        className: 'pin-wrap',
-        html: `<div class="pin" style="background:${RATING_COLORS[r]}">${h.surf < 0.2 ? '0' : h.surf.toFixed(1)}</div>`,
-        iconSize: [38, 24], iconAnchor: [19, 12],
-      });
-      L.marker([b.lat, b.lon], { icon }).addTo(leafletMap).bindPopup(`
-        <b>${esc(b.name)}</b><br>${surfRange(h.surf)} · ${ratingTxt(h.rating)}<br>
-        Swell ${f1(h.swell_wave_height)}m ${f0(h.swell_wave_period)}s ${compass(h.swell_wave_direction)}<br>
-        Vento ${f0(h.wind_speed_10m)} km/h ${compass(h.wind_direction_10m)} (${h.windLabel})<br>
-        <a href="#/praia/${b.id}">Ver previsão →</a>`);
-    });
+    bindRefresh();
+    mountFloripaMap('fmap-page', { height: 680 });
     bindWindyTabs('wtabs2', 'windy2', -27.62, -48.35, 8);
   }
 
@@ -339,7 +346,8 @@
 
         <h3>🗺️ Mapas — Windy embed + OpenStreetMap</h3>
         <p>Animações de ondas, swell e vento via <a href="https://www.windy.com/" target="_blank" rel="noopener">embed.windy.com</a>
-        (modelos ECMWF). Mapa das praias com Leaflet + OpenStreetMap.</p>
+        (modelos ECMWF).</p>
+        <p><b>Mapa geral</b>: grade de ~9 km sobre a região (mesma resolução do modelo de ondas), com ondas da Marine API e vento da Forecast API em cada ponto, desenhada com Leaflet sobre o mapa base da Esri (dados OpenStreetMap).</p>
 
         <h3>⭐ Como a nota é calculada</h3>
         <ul>
@@ -363,7 +371,7 @@
   // ---------- roteador ----------
   async function route() {
     const parts = location.hash.replace(/^#\/?/, '').split('/');
-    if (leafletMap && parts[0] !== 'mapa') { leafletMap.remove(); leafletMap = null; }
+    if (leafletMap) { leafletMap.remove(); leafletMap = null; }
     if (parts[0] === 'sobre') { renderAbout(); window.scrollTo(0, 0); return; }
     try {
       if (!DATA) await load();
