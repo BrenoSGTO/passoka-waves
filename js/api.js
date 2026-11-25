@@ -44,7 +44,7 @@
 
   // Busca todas as praias de uma vez (a API aceita listas de coordenadas).
   async function fetchAll(force) {
-    const key = 'pw:v2:all';
+    const key = 'pw:v4:all';
     if (!force) { const c = cacheGet(key); if (c) return c; }
     const B = window.BEACHES;
     const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?' + new URLSearchParams({
@@ -144,11 +144,15 @@
   // ---------- Avaliação de surf ----------
   const angDiff = (a, b) => { const d = Math.abs(((a - b) % 360 + 540) % 360 - 180); return d; };
 
-  function exposure(beach, dir) {
+  // Quanto de uma ondulação chega na praia, pelo ângulo entre a direção do swell e a orientação da praia.
+  // Ondas que chegam de lado contornam costões e refratam no raso; períodos longos refratam mais.
+  // Ex.: 82° fora do eixo -> ~30% da altura (antes ~7%); 0° -> 100%; acima de ~115° -> 5%.
+  function exposure(beach, dir, tp) {
     if (dir == null) return 0;
     const d = angDiff(dir, beach.facing);
-    if (d >= 90) return 0.05;
-    return Math.max(0.05, Math.cos(d * Math.PI / 180) ** 1.3);
+    const k = tp >= 10 ? 0.75 : 0.82;
+    const a = Math.min(90, d * k);
+    return Math.max(0.05, Math.cos(a * Math.PI / 180) ** 1.2);
   }
 
   // Estima altura de arrebentação a partir de cada componente (swell 1, 2 e vaga de vento).
@@ -163,11 +167,11 @@
       if (!hs || dir == null) return;
       // Ondas mais longas crescem mais ao chegar no raso (shoaling aproximado).
       const shoal = tp ? Math.min(1.6, Math.max(0.75, 0.55 + tp * 0.07)) : 1;
-      const e = hs * exposure(beach, dir) * shoal;
+      const e = hs * exposure(beach, dir, tp) * shoal;
       energy += e * e;
     });
     if (energy === 0 && h.wave_height != null) {
-      const e = h.wave_height * exposure(beach, h.wave_direction);
+      const e = h.wave_height * exposure(beach, h.wave_direction, h.wave_period);
       energy = e * e;
     }
     return Math.sqrt(energy);
