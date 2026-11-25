@@ -1,4 +1,5 @@
-// Gera uma imagem estilo post de Instagram (1080×1350) com o boletim de um horário.
+// Gera imagens de post: vertical (1080×1350) com o boletim de um horário, ou horizontal
+// (1920×1080) que soma o dia inteiro: ondas hora a hora, vento e tábua de maré.
 (function () {
   const W = 1080, H = 1350;
   const C16 = ['N', 'NNE', 'NE', 'ENE', 'L', 'ESE', 'SE', 'SSE', 'S', 'SSO', 'SO', 'OSO', 'O', 'ONO', 'NO', 'NNO'];
@@ -165,6 +166,17 @@
     let y = roseTop + 22;
     text(ctx, 'DIREÇÕES', lx, y, `600 20px ${MONO}`, ACCENT, 'left', 4);
     y += 22;
+    drawDirRows(ctx, h, lx, lw, y, 118);
+
+    // rodapé
+    const fy = H - 92;
+    hline(ctx, M, W - M, fy, 3);
+    text(ctx, `Florianópolis · água ${n1(h.sea_surface_temperature)} °C`, M, fy + 42, `400 22px ${MONO}`, MUTED);
+    text(ctx, 'previsão modelada', W - M, fy + 42, `italic 400 30px ${SERIF}`, INK, 'right');
+  }
+
+  // Componentes (swells, vagas e vento) listados ao lado da rosa — usado nos dois formatos.
+  function dirRows(h) {
     const rows = COMP.map(c => {
       const Hs = h[c.key + '_height'], D = h[c.key + '_direction'], T = h[c.key + '_period'];
       return { label: c.label, color: c.color, main: Hs ? `${n1(Hs)} m · ${n0(T)} s` : '—', sub: D == null || !Hs ? '' : `de ${c16(D)} ${n0(D)}°` };
@@ -174,7 +186,10 @@
       main: `${n0(h.wind_speed_10m)} km/h`, tag: h.windLabel,
       sub: `de ${c16(h.wind_direction_10m)} ${n0(h.wind_direction_10m)}° · raj. ${n0(h.wind_gusts_10m)}`,
     });
-    rows.forEach(r => {
+    return rows;
+  }
+  function drawDirRows(ctx, h, lx, lw, y, step) {
+    dirRows(h).forEach(r => {
       hline(ctx, lx, lx + lw, y, 1, LINE);
       ctx.fillStyle = r.color;
       if (r.dashed) { ctx.fillRect(lx, y + 26, 12, 7); ctx.fillRect(lx + 18, y + 26, 12, 7); }
@@ -183,18 +198,161 @@
       if (r.tag) text(ctx, r.tag.toUpperCase(), lx + lw, y + 36, `500 18px ${MONO}`, WIND_COLOR, 'right', 2);
       text(ctx, r.main, lx, y + 76, `500 32px ${MONO}`, INK);
       if (r.sub) text(ctx, r.sub, lx, y + 104, `400 21px ${MONO}`, MUTED);
-      y += 118;
+      y += step;
+    });
+  }
+
+  // Reduz a fonte até o texto caber na largura.
+  function fitSize(ctx, s, maxW, size, family, weight = 400) {
+    while (size > 40) {
+      ctx.font = `${weight} ${size}px ${family}`;
+      if (ctx.measureText(s).width <= maxW) break;
+      size -= 4;
+    }
+    return size;
+  }
+  const hm = t => { const d = new Date(t); return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+
+  // Formato horizontal (1920×1080): boletim do horário + ondas do dia inteiro, vento e maré.
+  function drawWide(canvas, beach, h, dayHours, extra = {}) {
+    const WW = 1920, HH = 1080, M = 72;
+    canvas.width = WW; canvas.height = HH;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = PAPER; ctx.fillRect(0, 0, WW, HH);
+    ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(30, 30, WW - 60, HH - 60);
+
+    const d = new Date(h.time);
+    const dateTxt = d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
+    text(ctx, 'BOLETIM DE ONDAS', M, 96, `600 24px ${MONO}`, ACCENT, 'left', 5);
+    text(ctx, `${dateTxt} · ${h.time.slice(11, 16)}`.toUpperCase(), WW / 2, 96, `500 24px ${MONO}`, MUTED, 'center', 3);
+    text(ctx, 'PASSOKA WAVES', WW - M, 96, `500 24px ${MONO}`, INK, 'right', 5);
+    hline(ctx, M, WW - M, 118, 3);
+
+    // ----- esquerda: nome, tamanho e números
+    const LW = 900;
+    const ns = fitSize(ctx, beach.name, LW, 120, SERIF);
+    text(ctx, beach.name, M - 4, 236, `400 ${ns}px ${SERIF}`, INK);
+    text(ctx, `${beach.region} da ilha · voltada para ${c16(beach.facing)} ${beach.facing}°`.toUpperCase(), M, 282, `500 21px ${MONO}`, MUTED, 'left', 2);
+    hline(ctx, M, M + LW, 306, 1, LINE);
+    text(ctx, 'NA ARREBENTAÇÃO', M, 344, `500 20px ${MONO}`, MUTED, 'left', 4);
+    const sr = surfRange(h.surf);
+    ctx.font = `500 124px ${MONO}`;
+    const srW = ctx.measureText(sr).width;
+    text(ctx, sr, M - 6, 458, `500 124px ${MONO}`, INK, 'left', -6);
+    if (sr !== 'flat') text(ctx, 'm', M + srW - 6 * sr.length + 8, 458, `500 56px ${MONO}`, MUTED);
+
+    const top = 486, cellH = 130, cw = LW / 4;
+    hline(ctx, M, M + LW, top, 3);
+    [
+      ['Ondas', n1(h.wave_height), 'm', null],
+      ['Período', n0(h.per), 's', PER_COLORS[h.pc]],
+      ['Energia', n0(h.energy), 'J/m²', null],
+      ['Água', n1(h.sea_surface_temperature), '°C', null],
+    ].forEach(([k, v, u, col], i) => {
+      const x = M + i * cw + (i ? 22 : 0);
+      if (i) { ctx.fillStyle = LINE; ctx.fillRect(M + i * cw, top + 20, 2, cellH - 36); }
+      if (col) { ctx.fillStyle = col; ctx.fillRect(x, top + 22, 14, 14); }
+      text(ctx, k.toUpperCase(), x + (col ? 24 : 0), top + 37, `500 19px ${MONO}`, MUTED, 'left', 3);
+      text(ctx, v, x - 2, top + 98, `500 60px ${MONO}`, INK, 'left', -3);
+      text(ctx, u, x, top + 124, `500 20px ${MONO}`, MUTED);
     });
 
+    // ----- direita: rosa + direções
+    const R = 168, cx = M + LW + 90 + R, cy = 118 + 52 + R + 20;
+    drawRose(ctx, beach, h, cx, cy, R);
+    const lx = cx + R + 70, lw = WW - M - lx;
+    text(ctx, 'DIREÇÕES', lx, 160, `600 20px ${MONO}`, ACCENT, 'left', 4);
+    drawDirRows(ctx, h, lx, lw, 176, 112);
+
+    // ----- gráficos do dia
+    hline(ctx, M, WW - M, 634, 3);
+    const t0 = new Date(dayHours[0].time.slice(0, 10) + 'T00:00').getTime(), DAY = 86400000;
+    const pTop = 712, pBot = 858;
+    const sun = extra.sun;
+    const shadeNight = (x0, x1) => {
+      if (!sun) return;
+      const X = t => x0 + Math.max(0, Math.min(1, (t - t0) / DAY)) * (x1 - x0);
+      const a = X(new Date(sun.sunrise).getTime()), b = X(new Date(sun.sunset).getTime());
+      ctx.fillStyle = 'rgba(21,24,27,.06)';
+      ctx.fillRect(x0, pTop - 24, a - x0, pBot - pTop + 24);
+      ctx.fillRect(b, pTop - 24, x1 - b, pBot - pTop + 24);
+    };
+
+    // ondas hora a hora + vento a cada 3 h
+    {
+      const x0 = M, x1 = 1150, slot = (x1 - x0) / 24, bw = slot * 0.74;
+      text(ctx, 'ONDAS AO LONGO DO DIA', x0, 674, `600 20px ${MONO}`, ACCENT, 'left', 4);
+      text(ctx, 'arrebentação (m) · cor = período · vento km/h', x1, 674, `400 18px ${MONO}`, MUTED, 'right');
+      shadeNight(x0, x1);
+      const vmax = Math.max(1, ...dayHours.map(x => x.surf || 0)) * 1.18;
+      const selHr = +h.time.slice(11, 13);
+      dayHours.forEach(x => {
+        const hr = +x.time.slice(11, 13), v = x.surf || 0, sel = hr === selHr;
+        const bx = x0 + hr * slot + (slot - bw) / 2, bh = Math.max(2, v / vmax * (pBot - pTop));
+        ctx.fillStyle = PER_COLORS[x.pc] || PER_COLORS[0];
+        ctx.fillRect(bx, pBot - bh, bw, bh);
+        if (sel) { ctx.strokeStyle = INK; ctx.lineWidth = 3; ctx.strokeRect(bx - 1.5, pBot - bh - 1.5, bw + 3, bh + 3); }
+        if (hr % 3 === 0 || sel) text(ctx, n1(v), bx + bw / 2, pBot - bh - 10, `${sel ? 600 : 500} 17px ${MONO}`, sel ? ACCENT : INK, 'center');
+      });
+      hline(ctx, x0, x1, pBot, 2);
+      for (let hr = 0; hr < 24; hr += 3) {
+        const c = x0 + hr * slot + slot / 2;
+        text(ctx, String(hr).padStart(2, '0') + 'h', c, pBot + 26, `500 16px ${MONO}`, MUTED, 'center');
+        const w = dayHours.find(x => +x.time.slice(11, 13) === hr);
+        if (!w || w.wind_direction_10m == null) continue;
+        // seta apontando para onde o vento sopra
+        ctx.save(); ctx.translate(c, pBot + 52); ctx.rotate(rad(w.wind_direction_10m));
+        ctx.translate(0, 10); arrowHead(ctx, 20); ctx.fillStyle = WIND_COLOR; ctx.fill(); ctx.restore();
+        text(ctx, n0(w.wind_speed_10m), c, pBot + 90, `600 17px ${MONO}`, INK, 'center');
+      }
+    }
+
+    // maré
+    {
+      const x0 = 1220, x1 = WW - M;
+      const X = t => x0 + (t - t0) / DAY * (x1 - x0);
+      text(ctx, 'MARÉ', x0, 674, `600 20px ${MONO}`, ACCENT, 'left', 4);
+      text(ctx, 'nível do mar (m)', x1, 674, `400 18px ${MONO}`, MUTED, 'right');
+      shadeNight(x0, x1);
+      const pts = dayHours.filter(x => x.sea_level_height_msl != null);
+      if (pts.length > 1) {
+        const vals = pts.map(p => p.sea_level_height_msl);
+        let lo = Math.min(...vals), hi = Math.max(...vals);
+        const m = Math.max(0.08, (hi - lo) * 0.35); lo -= m; hi += m;
+        const Y = v => pTop + (hi - v) / (hi - lo) * (pBot - pTop);
+        const PX = p => X(new Date(p.time).getTime());
+        ctx.beginPath();
+        pts.forEach((p, i) => i ? ctx.lineTo(PX(p), Y(p.sea_level_height_msl)) : ctx.moveTo(PX(p), Y(p.sea_level_height_msl)));
+        ctx.strokeStyle = '#1f4f7a'; ctx.lineWidth = 4; ctx.stroke();
+        ctx.lineTo(PX(pts[pts.length - 1]), pBot); ctx.lineTo(PX(pts[0]), pBot); ctx.closePath();
+        ctx.fillStyle = 'rgba(31,79,122,.13)'; ctx.fill();
+        (extra.extremes || []).filter(e => e.time >= t0 && e.time < t0 + DAY).forEach(e => {
+          const ex = X(e.time), ey = Y(e.level), isHi = e.type === 'high', col = isHi ? '#1f4f7a' : ACCENT;
+          ctx.fillStyle = col; ctx.beginPath(); ctx.arc(ex, ey, 7, 0, Math.PI * 2); ctx.fill();
+          const al = ex < x0 + 70 ? 'left' : ex > x1 - 70 ? 'right' : 'center';
+          text(ctx, `${isHi ? '▲' : '▼'} ${hm(e.time)} · ${e.level.toFixed(2)}`, ex, isHi || ey + 32 > pBot - 6 ? ey - 18 : ey + 32, `600 16px ${MONO}`, col, al);
+        });
+        const sx = X(new Date(h.time).getTime());
+        ctx.strokeStyle = INK; ctx.lineWidth = 2; ctx.setLineDash([6, 6]);
+        ctx.beginPath(); ctx.moveTo(sx, pTop - 20); ctx.lineTo(sx, pBot); ctx.stroke(); ctx.setLineDash([]);
+      } else text(ctx, 'sem dados de maré', (x0 + x1) / 2, (pTop + pBot) / 2, `400 20px ${MONO}`, MUTED, 'center');
+      hline(ctx, x0, x1, pBot, 2);
+      for (let hr = 0; hr <= 24; hr += 6) {
+        text(ctx, String(hr % 24).padStart(2, '0') + 'h', X(t0 + hr * 3600000), pBot + 26, `500 16px ${MONO}`, MUTED, hr === 0 ? 'left' : hr === 24 ? 'right' : 'center');
+      }
+      if (sun) text(ctx, `nascer do sol ${sun.sunrise.slice(11, 16)} · pôr ${sun.sunset.slice(11, 16)}`, x0, pBot + 90, `400 18px ${MONO}`, MUTED);
+    }
+
     // rodapé
-    const fy = H - 92;
-    hline(ctx, M, W - M, fy, 3);
-    text(ctx, `Florianópolis · água ${n1(h.sea_surface_temperature)} °C`, M, fy + 42, `400 22px ${MONO}`, MUTED);
-    text(ctx, 'previsão modelada', W - M, fy + 42, `italic 400 30px ${SERIF}`, INK, 'right');
+    const fy = HH - 92;
+    hline(ctx, M, WW - M, fy, 3);
+    text(ctx, 'Florianópolis · Open-Meteo (ECMWF WAM, MFWAM, GFS)', M, fy + 42, `400 22px ${MONO}`, MUTED);
+    text(ctx, 'previsão modelada', WW - M, fy + 42, `italic 400 30px ${SERIF}`, INK, 'right');
   }
 
   // ---------- modal ----------
-  function open(beach, dayHours, startIdx) {
+  let FORMAT = 'v';
+  function open(beach, dayHours, startIdx, extra = {}) {
     close();
     const wrap = document.createElement('div');
     wrap.className = 'post-modal';
@@ -204,6 +362,7 @@
           <span class="k">Post · ${beach.name}</span>
           <button class="icon-btn post-x" title="Fechar">✕</button>
         </div>
+        <div class="seg post-fmt"><button data-f="v">Vertical 4:5</button><button data-f="h">Horizontal 16:9</button></div>
         <div class="post-hours">${dayHours.map((h, i) => `<button data-i="${i}">${h.time.slice(11, 13)}h</button>`).join('')}</div>
         <div class="post-prev"><canvas></canvas></div>
         <div class="post-actions">
@@ -215,16 +374,20 @@
     document.body.style.overflow = 'hidden';
     const canvas = wrap.querySelector('canvas');
     let idx = startIdx;
-    const fileName = () => `passoka-${beach.id}-${dayHours[idx].time.slice(0, 13).replace('T', '-')}h.png`;
+    const fileName = () => `passoka-${beach.id}-${dayHours[idx].time.slice(0, 13).replace('T', '-')}h${FORMAT === 'h' ? '-horizontal' : ''}.png`;
 
     async function render() {
       wrap.querySelectorAll('.post-hours button').forEach(b => b.classList.toggle('active', +b.dataset.i === idx));
+      wrap.querySelectorAll('.post-fmt button').forEach(b => b.classList.toggle('active', b.dataset.f === FORMAT));
+      wrap.querySelector('.post-box').classList.toggle('wide', FORMAT === 'h');
       await fontsReady();
-      draw(canvas, beach, dayHours[idx]);
+      if (FORMAT === 'h') drawWide(canvas, beach, dayHours[idx], dayHours, extra);
+      else draw(canvas, beach, dayHours[idx]);
     }
     const blob = () => new Promise(res => canvas.toBlob(res, 'image/png'));
 
     wrap.querySelectorAll('.post-hours button').forEach(b => b.onclick = () => { idx = +b.dataset.i; render(); });
+    wrap.querySelectorAll('.post-fmt button').forEach(b => b.onclick = () => { FORMAT = b.dataset.f; render(); });
     wrap.querySelector('.post-x').onclick = close;
     wrap.addEventListener('click', e => { if (e.target === wrap) close(); });
     wrap.querySelector('.post-dl').onclick = async () => {
@@ -252,5 +415,5 @@
     document.removeEventListener('keydown', onKey);
   }
 
-  window.Post = { open, close, draw };
+  window.Post = { open, close, draw, drawWide, drawRose, fontsReady };
 })();

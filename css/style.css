@@ -281,6 +281,8 @@ table.fc tr.is-now td.t::after { content: ' agora'; color: var(--accent); font-s
 .ov { display: flex; }
 .ov-left { flex: none; border-right: 1px solid var(--line); background: var(--bg); }
 .ov-scroll { overflow-x: auto; flex: 1; }
+.drag-scroll { cursor: grab; }
+.drag-scroll.dragging { cursor: grabbing; user-select: none; }
 
 /* mapas e espectro */
 .spec { border-top: 1px solid var(--text); padding-top: 12px; }
@@ -355,3 +357,73 @@ table.fc tr.is-now td.t::after { content: ' agora'; color: var(--accent); font-s
 .post-prev canvas { display: block; width: 100%; height: auto; max-height: 62vh; object-fit: contain; border: 1px solid var(--line); }
 .post-actions { display: flex; gap: 8px; }
 .post-actions .btn { flex: 1; }
+
+/* favoritos */
+.fav-btn { background: none; border: 0; cursor: pointer; color: var(--line2); font: 1.25rem/1 var(--sans); padding: 4px 6px; display: inline-flex; align-items: center; gap: 6px; }
+.fav-btn:hover, .fav-btn.on { color: var(--accent); }
+.fav-btn span { font: 500 .7rem var(--mono); text-transform: uppercase; letter-spacing: .1em; color: var(--text); }
+.beach-head .fav-btn { border: 1px solid var(--text); padding: 6px 12px; margin-top: 6px; font-size: 1rem; }
+.bc { position: relative; display: flex; }
+.bc .beach-card { flex: 1; }
+.bc .beach-card .card-head { padding-right: 34px; }
+.bc > .fav-btn { position: absolute; top: 15px; right: 10px; }
+
+.fav-head { display: grid; grid-template-columns: 1.6fr 1fr; gap: 32px; align-items: end; padding: 36px 0 18px; }
+.fav-head h1 { margin-bottom: .2rem; }
+.fav-ctl { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; border-top: 2px solid var(--text); padding-top: 12px; margin-bottom: 14px; }
+.fav-ctl .seg { margin-bottom: 0; }
+.fav-days { margin-top: 0; border: 1px solid var(--text); max-width: 100%; }
+.fav-days button { background: none; border: 0; border-right: 1px solid var(--line); padding: 7px 13px; color: var(--muted); white-space: nowrap; text-transform: uppercase; font: 500 .7rem var(--mono); letter-spacing: .08em; cursor: pointer; }
+.fav-days button:last-child { border-right: 0; }
+.fav-days button:hover { color: var(--text); }
+.fav-days button.active { background: var(--text); color: var(--paper); }
+.fav-when { font: 500 .74rem var(--mono); color: var(--accent); text-transform: uppercase; letter-spacing: .1em; margin-left: auto; }
+.fav-empty { border: 1px dashed var(--line2); padding: 22px; background: var(--paper); }
+.fav-empty p { margin: 0 0 6px; }
+
+.fav-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(330px, 100%), 1fr)); gap: 14px; }
+.fav-card { background: var(--paper); border: 2px solid var(--text); padding: 16px 18px 14px; display: flex; flex-direction: column; position: relative; min-width: 0; }
+.fav-card::before { content: ''; position: absolute; left: 0; right: 0; top: 0; height: 5px; background: var(--rc, var(--r0)); }
+.fav-card.best { box-shadow: 5px 5px 0 var(--accent); }
+.fc-top { display: flex; align-items: center; gap: 8px; border-bottom: 2px solid var(--text); padding: 4px 0 6px; }
+.fc-kick { font: 600 .64rem var(--mono); color: var(--accent); text-transform: uppercase; letter-spacing: .14em; margin-right: auto; }
+.fc-best { font: 600 .6rem var(--mono); text-transform: uppercase; letter-spacing: .1em; background: var(--accent); color: #fff; padding: 2px 6px; }
+.fc-top .fav-btn { padding: 0 2px; }
+.fc-name { font: 400 2.3rem/1.05 var(--serif); text-decoration: none; margin: 10px 0 8px; overflow-wrap: anywhere; }
+.fc-lbl { font: 500 .62rem var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .16em; border-top: 1px solid var(--line); padding-top: 8px; }
+.fc-surf { font: 500 3rem/1.05 var(--mono); letter-spacing: -.05em; margin: 2px 0 10px; font-variant-numeric: tabular-nums; }
+.fc-surf small { font-size: .45em; color: var(--muted); letter-spacing: 0; margin-left: 4px; }
+.fc-stats { display: grid; grid-template-columns: repeat(4, 1fr); border-top: 2px solid var(--text); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.fc-stats > div { padding: 7px 0 7px 8px; display: flex; flex-direction: column; min-width: 0; }
+.fc-stats > div:first-child { padding-left: 0; }
+.fc-stats > div + div { border-left: 1px solid var(--line); }
+.fc-stats .k { font-size: .58rem; letter-spacing: .08em; white-space: nowrap; }
+.fc-stats .k i { display: inline-block; width: 7px; height: 7px; margin-right: 4px; vertical-align: 0; }
+.fc-stats b { font: 500 1.45rem/1.15 var(--mono); letter-spacing: -.03em; }
+.fc-stats small { font: .62rem var(--mono); color: var(--muted); }
+.fc-body { display: grid; grid-template-columns: 136px minmax(0, 1fr); gap: 12px; align-items: center; padding: 10px 0; }
+.fc-rose { width: 136px; height: 136px; display: block; }
+.fc-dirs { display: grid; gap: 0; min-width: 0; }
+.fd { display: grid; grid-template-columns: 10px auto 1fr; column-gap: 6px; align-items: baseline; font: .74rem/1.35 var(--mono); padding: 3px 0; border-top: 1px solid var(--line); }
+.fd i { width: 10px; height: 6px; display: block; align-self: center; }
+.fd.wind i { background: repeating-linear-gradient(90deg, var(--accent) 0 4px, transparent 4px 6px); }
+.fd b { font-size: .62rem; text-transform: uppercase; letter-spacing: .08em; }
+.fd span { text-align: right; font-weight: 500; white-space: nowrap; }
+.fd small { grid-column: 3; text-align: right; color: var(--muted); font-size: .66rem; }
+.fd .wk { margin-left: 2px; padding: 0 3px; font-size: .56rem; }
+.fav-card .strip { margin-top: 2px; }
+@media (max-width: 800px) {
+  .fav-head { grid-template-columns: 1fr; gap: 18px; padding-top: 26px; }
+  .fav-when { margin-left: 0; }
+}
+@media (max-width: 440px) {
+  .fav-grid { grid-template-columns: 1fr; }
+  .fc-body { grid-template-columns: 104px minmax(0, 1fr); gap: 8px; }
+  .fd.wind span { white-space: normal; }
+  .fav-card { padding: 14px 14px 12px; }
+  .fc-rose { width: 104px; height: 104px; }
+}
+
+/* post: seletor de formato e prévia larga */
+.post-fmt { margin-bottom: 0; align-self: flex-start; }
+.post-box.wide { width: min(980px, 100%); }

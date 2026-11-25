@@ -93,6 +93,29 @@
     if (b) b.onclick = async () => { b.disabled = true; b.textContent = 'Atualizando…'; await load(true); route(); };
   }
 
+  // ---------- FAVORITOS ----------
+  const FAV_KEY = 'passoka-favs';
+  let FAVS = (() => {
+    try { const v = JSON.parse(localStorage.getItem(FAV_KEY) || '[]'); return Array.isArray(v) ? v.filter(id => byId[id]) : []; }
+    catch (e) { return []; }
+  })();
+  const isFav = id => FAVS.includes(id);
+  function toggleFav(id) {
+    FAVS = isFav(id) ? FAVS.filter(x => x !== id) : [...FAVS, id];
+    try { localStorage.setItem(FAV_KEY, JSON.stringify(FAVS)); } catch (e) { /* sem storage: vale só nesta sessão */ }
+  }
+  const favBtn = (id, label) => `<button class="fav-btn${isFav(id) ? ' on' : ''}" data-fav="${id}" title="${isFav(id) ? 'Remover dos favoritos' : 'Favoritar'}" aria-pressed="${isFav(id)}">${isFav(id) ? '★' : '☆'}${label ? `<span>${isFav(id) ? 'Favorita' : 'Favoritar'}</span>` : ''}</button>`;
+
+  // Um clique na estrela, em qualquer página
+  $app.addEventListener('click', e => {
+    const btn = e.target.closest('[data-fav]');
+    if (!btn) return;
+    e.preventDefault(); e.stopPropagation();
+    toggleFav(btn.dataset.fav);
+    if (location.hash.startsWith('#/praia')) btn.outerHTML = favBtn(btn.dataset.fav, true);
+    else renderHome();
+  });
+
   // ---------- HOME ----------
   function dailyBest(hours) {
     const days = {};
@@ -104,27 +127,129 @@
     });
     return Object.entries(days).map(([k, h]) => ({ day: k, h }));
   }
+  const dayStrip = d => dailyBest(d.hours).map(({ day, h: dh }) =>
+    `<span class="day-chip r${dh.pc}" title="${dayLabel(day)} · ${surfRange(dh.surf)} · ${f0(dh.per)} s">${dayLabel(day, true).replace('.', '').slice(0, 3)}</span>`
+  ).join('');
 
   function beachCard(b) {
     const d = DATA.beaches[b.id];
     const h = d.hours[nowIndex(d.hours)];
-    const strip = dailyBest(d.hours).map(({ day, h: dh }) =>
-      `<span class="day-chip r${dh.pc}" title="${dayLabel(day)} · ${surfRange(dh.surf)} · ${f0(dh.per)} s">${dayLabel(day, true).replace('.', '').slice(0, 3)}</span>`
-    ).join('');
     return `
-      <a class="card beach-card r-border${h.pc}" href="#/praia/${b.id}">
-        <div class="card-head">
-          <h3>${esc(b.name)}</h3>
-          ${perBadge(h)}
+      <div class="bc">
+        <a class="card beach-card r-border${h.pc}" href="#/praia/${b.id}">
+          <div class="card-head">
+            <h3>${esc(b.name)}</h3>
+            ${perBadge(h)}
+          </div>
+          <div class="surf-big">${surfRange(h.surf).replace(' m', '<small> m</small>')}</div>
+          <div class="metrics">
+            <div><span class="k">Swell</span>${f1(h.swell_wave_height)}m · ${f0(h.swell_wave_period)}s ${arrow(h.swell_wave_direction)} ${compass(h.swell_wave_direction)}</div>
+            <div><span class="k">Vento</span>${f0(h.wind_speed_10m)} km/h ${arrow(h.wind_direction_10m, 'wind')} ${compass(h.wind_direction_10m)} <em class="wk ${h.windKind}">${h.windLabel}</em></div>
+            <div><span class="k">Água</span>${f1(h.sea_surface_temperature)}°C</div>
+          </div>
+          <div class="strip">${dayStrip(d)}</div>
+        </a>
+        ${favBtn(b.id)}
+      </div>`;
+  }
+
+  // Horário usado para comparar as favoritas (o mesmo para todas).
+  const FAV_HOURS = ['06', '09', '12', '15', '18'];
+  let favWhen = { day: null, hour: 'now' };
+
+  function favHour(d) {
+    if (favWhen.hour === 'now' || !favWhen.day) return d.hours[nowIndex(d.hours)];
+    const t = `${favWhen.day}T${favWhen.hour}:00`;
+    return d.hours.find(x => x.time === t) || d.hours[nowIndex(d.hours)];
+  }
+
+  // Card resumo no mesmo desenho do post: nome, tamanho, 4 números, rosa e direções.
+  function favCard(b, h, best) {
+    const d = DATA.beaches[b.id];
+    const sr = surfRange(h.surf);
+    const comp = [
+      ['Swell 1', 'swell_wave', '#1f4f7a'], ['Swell 2', 'secondary_swell_wave', '#5fa394'], ['Vagas', 'wind_wave', '#9a8f7a'],
+    ].map(([lbl, k, col]) => {
+      const Hs = h[k + '_height'], D = h[k + '_direction'];
+      return `<div class="fd"><i style="background:${col}"></i><b>${lbl}</b><span>${Hs ? `${f1(Hs)} m · ${f0(h[k + '_period'])} s` : '—'}</span><small>${Hs && D != null ? `de ${compass(D)} ${f0(D)}°` : ''}</small></div>`;
+    }).join('');
+    return `
+      <article class="fav-card r-border${h.pc}${best ? ' best' : ''}">
+        <div class="fc-top">
+          <span class="fc-kick">${b.region} · voltada p/ ${compass(b.facing)}</span>
+          ${best ? '<span class="fc-best">Melhor</span>' : ''}
+          ${favBtn(b.id)}
         </div>
-        <div class="surf-big">${surfRange(h.surf).replace(' m', '<small> m</small>')}</div>
-        <div class="metrics">
-          <div><span class="k">Swell</span>${f1(h.swell_wave_height)}m · ${f0(h.swell_wave_period)}s ${arrow(h.swell_wave_direction)} ${compass(h.swell_wave_direction)}</div>
-          <div><span class="k">Vento</span>${f0(h.wind_speed_10m)} km/h ${arrow(h.wind_direction_10m, 'wind')} ${compass(h.wind_direction_10m)} <em class="wk ${h.windKind}">${h.windLabel}</em></div>
-          <div><span class="k">Água</span>${f1(h.sea_surface_temperature)}°C</div>
+        <a class="fc-name" href="#/praia/${b.id}/${dayKey(h.time)}">${esc(b.name)}</a>
+        <div class="fc-lbl">Na arrebentação</div>
+        <div class="fc-surf">${sr === 'flat' ? 'flat' : `${sr.replace(' m', '')}<small>m</small>`}</div>
+        <div class="fc-stats">
+          <div><span class="k">Ondas</span><b>${f1(h.wave_height)}</b><small>m</small></div>
+          <div><span class="k"><i class="r${h.pc}"></i>Período</span><b>${f0(h.per)}</b><small>s</small></div>
+          <div><span class="k">Energia</span><b>${f0(h.energy)}</b><small>J/m²</small></div>
+          <div><span class="k">Vento</span><b>${f0(h.wind_speed_10m)}</b><small>km/h</small></div>
         </div>
-        <div class="strip">${strip}</div>
-      </a>`;
+        <div class="fc-body">
+          <canvas class="fc-rose" data-rose="${b.id}" width="500" height="500" aria-label="Rosa de direções"></canvas>
+          <div class="fc-dirs">
+            ${comp}
+            <div class="fd wind"><i></i><b>Vento</b><span>${f0(h.wind_speed_10m)} km/h <em class="wk ${h.windKind}">${h.windLabel}</em></span><small>de ${compass(h.wind_direction_10m)} · raj. ${f0(h.wind_gusts_10m)}</small></div>
+          </div>
+        </div>
+        <div class="strip">${dayStrip(d)}</div>
+      </article>`;
+  }
+
+  function favsSection() {
+    const days = [...new Set(DATA.beaches[B[0].id].hours.map(x => dayKey(x.time)))];
+    if (!favWhen.day || !days.includes(favWhen.day)) favWhen = { day: days[0], hour: 'now' };
+    const today = favWhen.day === days[0];
+    if (!today && favWhen.hour === 'now') favWhen.hour = '09';
+    const favs = FAVS.map(id => byId[id]).filter(Boolean);
+    const items = favs.map(b => ({ b, h: favHour(DATA.beaches[b.id]) }));
+    const bestR = items.length > 1 ? Math.max(...items.map(x => x.h.rating)) : null;
+    const whenTxt = items.length ? items[0].h.time : null;
+    return `
+      <div class="fav-ctl">
+        <div class="day-tabs fav-days">
+          ${days.map(dd => `<button data-fday="${dd}" class="${dd === favWhen.day ? 'active' : ''}">${dayLabel(dd, true)}</button>`).join('')}
+        </div>
+        <div class="seg fav-hours">
+          ${today ? `<button data-fhour="now" class="${favWhen.hour === 'now' ? 'active' : ''}">Agora</button>` : ''}
+          ${FAV_HOURS.map(hh => `<button data-fhour="${hh}" class="${favWhen.hour === hh ? 'active' : ''}">${hh}h</button>`).join('')}
+        </div>
+        ${whenTxt ? `<span class="fav-when">${dayLabel(dayKey(whenTxt))} · ${whenTxt.slice(11, 16)}</span>` : ''}
+      </div>
+      ${favs.length ? `<div class="fav-grid">${items.map(({ b, h }) => favCard(b, h, bestR != null && h.rating === bestR)).join('')}</div>`
+        : `<div class="fav-empty">
+            <p>Você ainda não tem praias favoritas.</p>
+            <p class="muted small">Toque na estrela ☆ de qualquer praia abaixo (ou na página dela) e ela aparece aqui, lado a lado com as outras, no mesmo horário.</p>
+          </div>`}`;
+  }
+
+  async function drawFavRoses() {
+    const cvs = [...document.querySelectorAll('canvas[data-rose]')];
+    if (!cvs.length) return;
+    await Post.fontsReady();
+    cvs.forEach(c => {
+      if (!document.body.contains(c)) return;
+      const b = byId[c.dataset.rose];
+      const h = favHour(DATA.beaches[b.id]);
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      Post.drawRose(ctx, b, h, 250, 250, 190);
+    });
+  }
+
+  function mountFavs() {
+    const el = document.getElementById('favs');
+    if (!el) return;
+    el.innerHTML = favsSection();
+    el.querySelectorAll('[data-fday]').forEach(btn => btn.onclick = () => { favWhen.day = btn.dataset.fday; mountFavs(); });
+    el.querySelectorAll('[data-fhour]').forEach(btn => btn.onclick = () => { favWhen.hour = btn.dataset.fhour; mountFavs(); });
+    const act = el.querySelector('.fav-days .active');
+    if (act) act.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    drawFavRoses();
   }
 
   function renderHome() {
@@ -140,20 +265,19 @@
 
     const regions = ['Norte', 'Leste', 'Sul'];
     $app.innerHTML = `
-      <section class="hero">
+      <section class="fav-head">
         <div>
           <div class="kicker">Boletim de ondas · ${new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}</div>
-          <h1>O mar de <em>Florianópolis</em>, praia por praia.</h1>
-          <p class="lede muted">Swell, vento, maré e água para ${B.length} praias da ilha, de hora em hora pelos próximos sete dias.</p>
+          <h1>Suas <em>praias</em></h1>
           ${updatedLine()}
         </div>
         <div class="hero-side">
           <div class="pill"><span class="k">Ondulação ao largo</span><span>${f1(sea.wave_height)} m · ${f0(sea.wave_period)} s ${arrow(sea.wave_direction)}${compass(sea.wave_direction)}</span></div>
-          <div class="pill"><span class="k">Melhor agora</span><span>${esc(top[0].b.name)} · ${surfRange(top[0].h.surf)}</span></div>
           <div class="pill"><span class="k">Próximas marés</span><span>${ex.map(e => `${e.type === 'high' ? 'cheia' : 'seca'} ${Charts.fmtHM(e.time)}`).join(' · ') || '—'}</span></div>
           <div class="pill"><span class="k">Água</span><span>${f1(sea.sea_surface_temperature)} °C</span></div>
         </div>
       </section>
+      <section id="favs" class="favs"></section>
 
       <section>
         <h2><span class="n">01</span> Melhores agora</h2>
@@ -168,21 +292,14 @@
         </div>
       </section>
 
-      <section>
-        <h2><span class="n">02</span> Mapas e espectro</h2>
-        <p class="muted small">O leque mostra de onde vem a energia das ondas: o ângulo é a direção, os anéis são o período (5, 10, 15 e 20 s) e a cor é a energia.
-        As setas na borda são os componentes (vagas, swell 1 e swell 2), e o pino amarelo é o vento. Para ver a ilha inteira, abra o <a href="#/mapa">mapa geral</a>.</p>
-        <div id="spec-home"></div>
-      </section>
-
       ${regions.map((r, i) => `
         <section>
-          <h2><span class="n">0${i + 3}</span> ${r} da ilha</h2>
+          <h2><span class="n">0${i + 2}</span> ${r} da ilha</h2>
           <div class="grid">${B.filter(b => b.region === r).map(beachCard).join('')}</div>
         </section>`).join('')}
     `;
     bindRefresh();
-    mountSpectrum('spec-home', {});
+    mountFavs();
   }
 
   // ---------- PRAIA ----------
@@ -208,6 +325,7 @@
         <div>
           <div class="kicker">${b.region} da ilha · voltada para ${compass(b.facing)} ${b.facing}°</div>
           <h1>${esc(b.name)}</h1>
+          ${favBtn(id, true)}
           ${updatedLine()}
         </div>
         <div class="now-box r-border${h.pc}">
@@ -297,7 +415,7 @@
     document.getElementById('mk-post').onclick = () => {
       const nowI = dayHours.findIndex(x => x.time === hourNow);
       const start = nowI >= 0 ? nowI : Math.max(0, dayHours.findIndex(x => x.time.slice(11, 13) === '09'));
-      Post.open(b, dayHours, start);
+      Post.open(b, dayHours, start, { extremes, sun });
     };
   }
   const localDay = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
