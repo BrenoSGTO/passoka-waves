@@ -78,7 +78,7 @@
     const n = hours.length;
     const LW = 74;
     const bw = 13, L = 4, R = 12, TOP = 22, BH = 150, ROW = 24;
-    const rows = ['Hora', 'Nota', 'Swell (m)', 'Período', 'Vento', 'Rajada', 'Dir. vento'];
+    const rows = ['Hora', 'Período', 'Swell (m)', 'Energia J', 'Vento', 'Rajada', 'Dir. vento'];
     const yBars0 = TOP + 18, yBase = yBars0 + BH;
     const H = yBase + rows.length * ROW + 6;
     const W = L + n * bw + R;
@@ -118,8 +118,8 @@
           d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' });
       }
       const hv = h.surf || 0;
-      const rct = el('rect', { x: x(i) + 0.5, y: y(hv), width: bw - 1, height: Math.max(0, yBase - y(hv)), class: 'bar r' + Math.round(h.rating), 'data-i': i }, svg);
-      el('title', {}, rct).textContent = `${d.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · surf ${hv.toFixed(1)} m · nota ${h.rating.toFixed(1)}`;
+      const rct = el('rect', { x: x(i) + 0.5, y: y(hv), width: bw - 1, height: Math.max(0, yBase - y(hv)), class: 'bar r' + h.pc, 'data-i': i }, svg);
+      el('title', {}, rct).textContent = `${d.toLocaleString('pt-BR', { weekday: 'short', hour: '2-digit', minute: '2-digit' })} · surf ${hv.toFixed(1)} m · ${h.per == null ? '—' : Math.round(h.per)} s`;
 
       // Valores a cada 3 h, centralizados na coluna de 3 horas
       if (hr % 3 !== 0) return;
@@ -127,12 +127,12 @@
       if (i + 1 < n) el('text', { x: cx, y: y(hv) - 5, class: 'bar-val', 'text-anchor': 'middle' }, svg).textContent = hv.toFixed(1);
       const t = (r, txt, cls = 'cell') => { el('text', { x: cx, y: yBase + r * ROW + 16, class: cls, 'text-anchor': 'middle' }, svg).textContent = txt; };
       t(0, String(hr).padStart(2, '0') + 'h', 'cell muted-c');
-      el('rect', { x: cx - 14, y: yBase + ROW + 4, width: 28, height: ROW - 8, class: 'r' + Math.round(h.rating) }, svg);
-      t(1, h.rating.toFixed(1), 'cell dark');
+      el('rect', { x: cx - 14, y: yBase + ROW + 4, width: 28, height: ROW - 8, class: 'r' + h.pc }, svg);
+      t(1, h.per == null ? '—' : Math.round(h.per) + 's', 'cell dark');
       if (h.swell_wave_direction != null) arrowPath(cx - 12, yBase + 2 * ROW + 12, h.swell_wave_direction, 11, null, 'ar-sw');
       el('text', { x: cx + 5, y: yBase + 2 * ROW + 16, class: 'cell sw', 'text-anchor': 'middle' }, svg).textContent =
         h.swell_wave_height == null ? '—' : h.swell_wave_height.toFixed(1);
-      t(3, h.swell_wave_period == null ? '—' : Math.round(h.swell_wave_period) + 's');
+      t(3, h.energy == null ? '—' : String(Math.round(h.energy)));
       const ws = Math.round(h.wind_speed_10m || 0);
       el('rect', { x: cx - 14, y: yBase + 4 * ROW + 4, width: 28, height: ROW - 8, fill: windColor(ws), opacity: 0.75 }, svg);
       t(4, String(ws), 'cell dark');

@@ -18,13 +18,8 @@
   const arrow = (dir, cls = '') => dir == null ? '' :
     `<svg class="arrow ${cls}" viewBox="0 0 24 24" style="transform:rotate(${(dir + 180) % 360}deg)" aria-hidden="true"><path d="M12 2 L19 20 L12 16 L5 20 Z"/></svg>`;
 
-  const RATING_TXT = ['Flat', 'Fraco', 'Regular', 'Bom', 'Muito bom', 'Clássico'];
-  const ratingTxt = r => RATING_TXT[Math.max(0, Math.min(5, Math.round(r)))];
-  // Medidor de 5 segmentos no lugar de estrelas
-  const stars = r => {
-    const n = Math.round(r);
-    return `<span class="meter r-border${n}" title="${ratingTxt(r)} (${r.toFixed(1)}/5)">${[1, 2, 3, 4, 5].map(i => `<i class="${i <= n ? 'on' : ''}"></i>`).join('')}<span>${r.toFixed(1)}</span></span>`;
-  };
+  // Selo de período (s), colorido pela faixa de período
+  const perBadge = h => `<span class="per r${h.pc}" title="Período do swell">${h.per == null ? '—' : Math.round(h.per)}<small>s</small></span>`;
   const surfRange = s => {
     if (s < 0.2) return 'flat';
     const lo = s * 0.8, hi = s * 1.25;
@@ -114,13 +109,13 @@
     const d = DATA.beaches[b.id];
     const h = d.hours[nowIndex(d.hours)];
     const strip = dailyBest(d.hours).map(({ day, h: dh }) =>
-      `<span class="day-chip r${Math.round(dh.rating)}" title="${dayLabel(day)} · melhor ${surfRange(dh.surf)} · ${ratingTxt(dh.rating)}">${dayLabel(day, true).replace('.', '').slice(0, 3)}</span>`
+      `<span class="day-chip r${dh.pc}" title="${dayLabel(day)} · ${surfRange(dh.surf)} · ${f0(dh.per)} s">${dayLabel(day, true).replace('.', '').slice(0, 3)}</span>`
     ).join('');
     return `
-      <a class="card beach-card r-border${Math.round(h.rating)}" href="#/praia/${b.id}">
+      <a class="card beach-card r-border${h.pc}" href="#/praia/${b.id}">
         <div class="card-head">
           <h3>${esc(b.name)}</h3>
-          ${stars(h.rating)}
+          ${perBadge(h)}
         </div>
         <div class="surf-big">${surfRange(h.surf).replace(' m', '<small> m</small>')}</div>
         <div class="metrics">
@@ -167,7 +162,7 @@
             <a class="top-item" href="#/praia/${b.id}">
               <span class="rank">${i + 1}</span>
               <span class="name">${esc(b.name)}</span>
-              ${stars(h.rating)}
+              ${perBadge(h)}
               <span class="sz">${surfRange(h.surf)} · ${f0(h.wind_speed_10m)} km/h ${h.windLabel.toLowerCase()}</span>
             </a>`).join('')}
         </div>
@@ -215,10 +210,10 @@
           <h1>${esc(b.name)}</h1>
           ${updatedLine()}
         </div>
-        <div class="now-box r-border${Math.round(h.rating)}">
+        <div class="now-box r-border${h.pc}">
           <div class="now-label">Agora</div>
           <div class="surf-big">${surfRange(h.surf)}</div>
-          ${stars(h.rating)} <span class="muted">${ratingTxt(h.rating)}</span>
+          ${perBadge(h)} <span class="muted">período · ${f0(h.energy)} J/m²</span>
         </div>
       </section>
 
@@ -237,7 +232,7 @@
 
       <section>
         <h2><span class="n">02</span> Próximos 7 dias</h2>
-        <p class="muted small">Barras = altura estimada na arrebentação em metros (cor = qualidade). Abaixo: nota, swell (m, seta = para onde vai), período, vento e rajada (km/h) a cada 3 h. Clique numa barra para abrir o dia.</p>
+        <p class="muted small">Barras = altura estimada na arrebentação em metros (cor = período). Abaixo: swell (m, seta = para onde vai), período, vento e rajada (km/h) a cada 3 h. Clique numa barra para abrir o dia.</p>
         <div class="ov-card" id="overview"></div>
       </section>
 
@@ -245,17 +240,20 @@
         <div class="day-tabs">
           ${days.map(dd => `<a href="#/praia/${id}/${dd}" class="${dd === sel ? 'active' : ''}">${dayLabel(dd, true)}</a>`).join('')}
         </div>
-        <h2 class="day-title">${dayLabel(sel)}</h2>
+        <div class="day-head">
+          <h2 class="day-title">${dayLabel(sel)}</h2>
+          <button class="btn btn-post" id="mk-post">Gerar post</button>
+        </div>
         <div class="table-wrap">
           <table class="fc">
             <thead><tr>
-              <th>Hora</th><th>Nota</th><th>Surf</th><th>Swell 1</th><th>Swell 2</th><th>Vaga vento</th><th>Vento</th><th>Tempo</th>
+              <th>Hora</th><th>Período</th><th>Surf</th><th>Swell 1</th><th>Swell 2</th><th>Vaga vento</th><th>Vento</th><th>Tempo</th>
             </tr></thead>
             <tbody>
               ${rows.map(x => `
                 <tr class="${x.time <= hourNow && hourNow < addH(x.time, 3) ? 'is-now' : ''}">
                   <td class="t">${x.time.slice(11, 16)}</td>
-                  <td><span class="rate r${Math.round(x.rating)}">${x.rating.toFixed(1)}</span></td>
+                  <td><span class="rate r${x.pc}">${x.per == null ? '—' : Math.round(x.per) + ' s'}</span></td>
                   <td class="b">${surfRange(x.surf)}</td>
                   <td>${f1(x.swell_wave_height)}m <span class="muted">${f0(x.swell_wave_period)}s</span> ${arrow(x.swell_wave_direction)}<span class="muted">${compass(x.swell_wave_direction)}</span></td>
                   <td>${x.secondary_swell_wave_height ? `${f1(x.secondary_swell_wave_height)}m <span class="muted">${f0(x.secondary_swell_wave_period)}s</span> ${arrow(x.secondary_swell_wave_direction)}<span class="muted">${compass(x.secondary_swell_wave_direction)}</span>` : '—'}</td>
@@ -296,6 +294,11 @@
     ov.scrollToIndex(sel === days[0] ? ni : firstOfDay);
     bindWindyTabs('wtabs', 'windy', b.mlat, b.mlon, 10, b);
     mountSpectrum('spec-beach', { beachId: id, selector: false });
+    document.getElementById('mk-post').onclick = () => {
+      const nowI = dayHours.findIndex(x => x.time === hourNow);
+      const start = nowI >= 0 ? nowI : Math.max(0, dayHours.findIndex(x => x.time.slice(11, 13) === '09'));
+      Post.open(b, dayHours, start);
+    };
   }
   const localDay = t => { const d = new Date(t); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
   const addH = (t, n) => { const d = new Date(t); d.setHours(d.getHours() + n); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:00`; };
@@ -328,7 +331,7 @@
             <div class="kicker">Mapa geral</div>
             <h1>A ilha <em>inteira</em>, de três em três horas.</h1>
             <p class="lede muted">A cor e as setas brancas mostram a ondulação, com altura e período. As setas coloridas mostram o vento em km/h.
-            Os pontos nas praias trazem a nota de surf no horário escolhido.</p>
+            A cor dos pontos nas praias indica o período do swell no horário escolhido.</p>
             ${updatedLine()}
           </div>
         </div>
@@ -380,12 +383,13 @@
         (vagas de vento, swell primário e swell secundário): cada uma vira uma mancha gaussiana em direção × período, com energia
         <code>E = ρ·g·H²/16</code> (J/m²), mesma unidade da escala de cores. Imagens de satélite: Esri World Imagery.</p>
 
-        <h3>Como a nota é calculada</h3>
+        <h3>Como o surf é estimado</h3>
         <ul>
           <li><b>Surf estimado</b>: cada componente (swell 1, swell 2, vaga de vento) é ponderado pela exposição da praia
           (ângulo entre a direção do swell e a orientação da praia) e por um fator de período (ondas longas crescem mais no raso).</li>
-          <li><b>Vento</b>: comparado com a orientação da praia — <em>terral</em> (do continente para o mar) melhora, <em>maral</em> piora proporcional à velocidade.</li>
-          <li><b>Período</b>: ≥ 12 s bonifica, &lt; 7 s penaliza.</li>
+          <li><b>Vento</b>: comparado com a orientação da praia — <em>terral</em> (do continente para o mar), <em>lateral</em> ou <em>maral</em>.</li>
+          <li><b>Período</b>: a cor indica o período do swell — &lt; 7 s, 7–9, 9–11, 11–13, 13–15 e ≥ 15 s.</li>
+          <li><b>Energia</b>: <code>E = ρ·g·H²/16</code> em J/m², com a altura significativa total.</li>
         </ul>
         <p class="muted">É uma estimativa automática — fundo, bancadas e correntes de cada pico não são considerados.</p>
 

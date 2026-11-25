@@ -210,7 +210,7 @@
       }).join('');
       container.querySelector('.spec-info').innerHTML = `
         <div class="si-head"><a href="#/praia/${beach.id}"><b>${beach.name}</b></a><span class="si-when">${d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' })} · ${h.time.slice(11, 16)}</span>
-          <span class="si-surf">Surf ~${h.surf.toFixed(1)} m · nota ${h.rating.toFixed(1)}/5</span></div>
+          <span class="si-surf">Surf ~${h.surf.toFixed(1)} m · ${h.per == null ? '—' : Math.round(h.per)} s · ${Math.round(h.energy || 0)} J/m²</span></div>
         <div class="si-row">${comp}
           <div class="si"><i style="background:#facc15"></i><span class="k">Vento</span><b>${Math.round(h.wind_speed_10m)} km/h</b>
             ${Math.round(h.wind_speed_10m / 1.852)} kt · ${c16(h.wind_direction_10m)} <em class="wk ${h.windKind}">${h.windLabel}</em></div>

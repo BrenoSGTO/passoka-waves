@@ -119,7 +119,7 @@
         const h = hrs[tIdx[times[idx]]];
         if (!h) return b.name;
         return `<b>${b.name}</b> · ${fmtTime(times[idx])}<br>
-          Surf ~<b>${h.surf.toFixed(1)} m</b> · nota ${h.rating.toFixed(1)}/5<br>
+          Surf ~<b>${h.surf.toFixed(1)} m</b> · ${h.per == null ? '—' : Math.round(h.per)} s · ${Math.round(h.energy || 0)} J/m²<br>
           Vento ${Math.round(h.wind_speed_10m)} km/h ${compass(h.wind_direction_10m)} (${h.windLabel})<br>
           <a href="#/praia/${b.id}">Ver previsão →</a>`;
       });
@@ -145,7 +145,7 @@
       });
       beachMk.forEach(({ mk, hrs, tIdx }) => {
         const h = hrs[tIdx[times[idx]]];
-        const r = h ? Math.round(h.rating) : 0;
+        const r = h ? h.pc : 0;
         mk.setIcon(L.divIcon({ className: 'bch-wrap', iconSize: [10, 10], iconAnchor: [5, 5], html: `<i class="bch r${r}"></i>` }));
       });
       if (opts.onTime) opts.onTime(idx);

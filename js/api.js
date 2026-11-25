@@ -44,7 +44,7 @@
 
   // Busca todas as praias de uma vez (a API aceita listas de coordenadas).
   async function fetchAll(force) {
-    const key = 'pw:v1:all';
+    const key = 'pw:v2:all';
     if (!force) { const c = cacheGet(key); if (c) return c; }
     const B = window.BEACHES;
     const marineUrl = 'https://marine-api.open-meteo.com/v1/marine?' + new URLSearchParams({
@@ -194,6 +194,14 @@
     return { label, factor, kind };
   }
 
+  // Energia da onda por área: E = ρ·g·H²/16 (J/m²)
+  const RHO_G_16 = 1025 * 9.81 / 16;
+  // Classe de cor pelo período (0 = curto, 5 = muito longo)
+  function periodClass(T) {
+    if (!T) return 0;
+    return T < 7 ? 0 : T < 9 ? 1 : T < 11 ? 2 : T < 13 ? 3 : T < 15 ? 4 : 5;
+  }
+
   function assess(beach, h) {
     const surf = surfHeight(beach, h);
     const wind = windQuality(beach, h.wind_speed_10m, h.wind_direction_10m);
@@ -205,8 +213,10 @@
     else if (surf < 2.2) size = 4 + (surf - 1.0) * 0.8;  // 4–5
     else size = Math.max(3, 5 - (surf - 2.2) * 0.8);     // grande demais p/ maioria
     const periodF = tp >= 12 ? 1.1 : tp >= 9 ? 1 : tp >= 7 ? 0.85 : 0.65;
-    const rating = Math.max(0, Math.min(5, size * periodF * wind.factor));
-    return { surf, rating, windKind: wind.kind, windLabel: wind.label };
+    const rating = Math.max(0, Math.min(5, size * periodF * wind.factor)); // só para ordenar as praias
+    const per = h.swell_wave_period || h.wave_period || null;
+    const energy = h.wave_height == null ? null : RHO_G_16 * h.wave_height * h.wave_height;
+    return { surf, rating, per, pc: periodClass(per), energy, windKind: wind.kind, windLabel: wind.label };
   }
 
   // Extremos de maré (preamar / baixa-mar) a partir da série horária, com interpolação parabólica.
@@ -226,5 +236,5 @@
     return out;
   }
 
-  window.API = { fetchAll, fetchGrid, tideExtremes, angDiff, exposure };
+  window.API = { fetchAll, fetchGrid, tideExtremes, angDiff, exposure, periodClass };
 })();
